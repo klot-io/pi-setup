@@ -1,4 +1,4 @@
-ACCOUNT=cloudofthingsio
+ACCOUNT=clotio
 IMAGE=pi-setup
 VERSION?=0.1
 VOLUMES=-v ${PWD}/requirements.txt:/opt/clot-io/requirements.txt \
