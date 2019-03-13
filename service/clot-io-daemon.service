@@ -1,0 +1,10 @@
+[Unit]
+Description=Clot I/O Config
+
+[Service]
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/clot-io/bin/daemon.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target 
