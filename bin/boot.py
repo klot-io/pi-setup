@@ -3,13 +3,13 @@
 import os
 import sys
 import json
-import firmware
+import setup
 
 version = sys.argv[1]
 
-local = firmware.Local("/opt/clot-io/boot")
+local = setup.Local("/opt/klot-io/boot")
 
-local.create("version", f"clot-io-pi-{version}")
+local.create("version", f"klot-io-pi-{version}")
 
 local.directory("config")
 local.copy("config/account.yaml")
@@ -18,16 +18,27 @@ local.copy("config/kube-flannel.yml")
 
 local.copy("requirements.txt")
 
+local.directory("lib")
+local.copy("lib/manage.py")
+local.copy("lib/config.py")
+
+local.directory("etc")
+local.copy("etc/rpi.conf")
+
+local.copytree("www")
+
 local.directory("bin")
 local.copy("bin/wifi.sh")
 local.copy("bin/tmpfs.sh")
 local.copy("bin/kubernetes.sh")
 local.copy("bin/images.sh")
-local.copy("bin/clot-io.sh")
+local.copy("bin/klot-io.sh")
+local.copy("bin/api.py")
 local.copy("bin/daemon.py")
 
 local.directory("service")
-local.copy("service/clot-io-daemon.service")
+local.copy("service/klot-io-daemon.service")
+local.copy("service/klot-io-api.service")
 
 local.replace("config.txt", [
     ("#hdmi_force_hotplug=1", "hdmi_force_hotplug=1"),

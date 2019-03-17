@@ -1,0 +1,11 @@
+[Unit]
+Description=Klot I/O Config API
+
+[Service]
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONPATH=/opt/klot-io/lib
+ExecStart=/opt/klot-io/bin/api.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target 

@@ -1,33 +1,44 @@
-ACCOUNT=clotio
+ACCOUNT=klotio
 IMAGE=pi-setup
 VERSION?=0.1
-VOLUMES=-v ${PWD}/requirements.txt:/opt/clot-io/requirements.txt \
-        -v ${PWD}/lib/:/opt/clot-io/lib/ \
-        -v ${PWD}/bin/:/opt/clot-io/bin/ \
-        -v ${PWD}/config/:/opt/clot-io/config/ \
-        -v ${PWD}/service/:/opt/clot-io/service/ \
-        -v ${PWD}/images/:/opt/clot-io/images/
+VOLUMES=-v ${PWD}/requirements.txt:/opt/klot-io/requirements.txt \
+        -v ${PWD}/etc/:/opt/klot-io/etc/\
+        -v ${PWD}/lib/:/opt/klot-io/lib/ \
+        -v ${PWD}/www/:/opt/klot-io/www/ \
+        -v ${PWD}/bin/:/opt/klot-io/bin/ \
+        -v ${PWD}/config/:/opt/klot-io/config/ \
+        -v ${PWD}/service/:/opt/klot-io/service/ \
+        -v ${PWD}/images/:/opt/klot-io/images/
+PORT=8083
+
 
 .PHONY: build shell boot daemon convert 
 
 build:
-	docker build . -f Dockerfile.firmware -t $(ACCOUNT)/$(IMAGE)-firmware:$(VERSION)
+	docker build . -f Dockerfile.setup -t $(ACCOUNT)/$(IMAGE)-setup:$(VERSION)
 
 shell:
-	docker run --privileged=true -it --network=host $(VARIABLES) $(VOLUMES) $(ACCOUNT)/$(IMAGE)-firmware:$(VERSION) sh
+	docker run --privileged=true -it --network=host $(VARIABLES) $(VOLUMES) $(ACCOUNT)/$(IMAGE)-setup:$(VERSION) sh
 
 boot:
-	docker run --privileged=true -it --rm -v /Volumes/boot/:/opt/clot-io/boot/ $(VOLUMES) $(ACCOUNT)/$(IMAGE)-firmware:$(VERSION) sh -c "bin/boot.py $(VERSION)"
+	docker run --privileged=true -it --rm -v /Volumes/boot/:/opt/klot-io/boot/ $(VOLUMES) $(ACCOUNT)/$(IMAGE)-setup:$(VERSION) sh -c "bin/boot.py $(VERSION)"
+
+api:
+	scp lib/manage.py pi@klot-io.local:/opt/klot-io/lib/
+	ssh pi@klot-io.local "sudo systemctl restart klot-io-daemon"
 
 daemon:
-	scp bin/daemon.py pi@clot-io.local:/opt/clot-io/bin/
-	ssh pi@clot-io.local "sudo systemctl restart clot-io-daemon"
+	scp lib/config.py pi@klot-io.local:/opt/klot-io/lib/
+	ssh pi@klot-io.local "sudo systemctl restart klot-io-daemon"
 
 export:
 	bin/export.sh $(VERSION)
 
 shrink:
-	docker run --privileged=true -it --rm $(VOLUMES) $(ACCOUNT)/$(IMAGE):$(VERSION) sh -c "pishrink.sh images/pi-k8s-$(VERSION).img"
+	docker run --privileged=true -it --rm $(VOLUMES) $(ACCOUNT)/$(IMAGE):$(VERSION) sh -c "pishrink.sh images/pi-$(VERSION).img"
 
-firmware: build git secret base install install convert export shrink
+config:
+	docker-compose -f docker-compose.yml up
 
+clean:
+	docker-compose -f docker-compose.yml down

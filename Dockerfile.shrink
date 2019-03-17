@@ -1,8 +1,8 @@
 FROM ubuntu:16.04
 
-RUN mkdir -p /opt/clot-io
+RUN mkdir -p /opt/klot-io
 
-WORKDIR /opt/clot-io
+WORKDIR /opt/klot-io
 
 RUN wget https://raw.githubusercontent.com/Drewsif/PiShrink/master/pishrink.sh && \
     chmod +x pishrink.sh && \

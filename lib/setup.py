@@ -75,9 +75,16 @@ class Local:
 
     def directory(self, path):
 
-        if not os.path.exists(f"{self.base}/clot-io/{path}"):
-            os.makedirs(f"{self.base}/clot-io/{path}")
+        if not os.path.exists(f"{self.base}/klot-io/{path}"):
+            os.makedirs(f"{self.base}/klot-io/{path}")
 
     def copy(self, path):
 
-        shutil.copy(path, f"{self.base}/clot-io/{path}")
+        shutil.copy(path, f"{self.base}/klot-io/{path}")
+
+    def copytree(self, path):
+
+        if os.path.exists(f"{self.base}/klot-io/{path}"):
+            shutil.rmtree(f"{self.base}/klot-io/{path}")
+
+        shutil.copytree(path, f"{self.base}/klot-io/{path}")
