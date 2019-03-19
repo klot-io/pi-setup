@@ -1,0 +1,25 @@
+{{#def.Header}}
+<div class="uk-overflow-container">
+    <h2>Pods</h2>
+    <table class="uk-table">
+        <thead>
+            <tr>
+                <th>Namespace</th>
+                <th>Name</th>
+                <th>Node</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{~it.pods :pod}}
+            <tr>
+                <td>{{=pod.namespace}}</td>
+                <td>{{=pod.name}}</td>
+                <td>{{=pod.node || ''}}</td>
+                <td>{{=pod.status}}</td>
+            </tr>
+            {{~}}
+        </tbody>
+    </table>
+</div>
+{{#def.Footer}}

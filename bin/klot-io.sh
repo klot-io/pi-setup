@@ -2,9 +2,8 @@
 
 set -e
 
-echo "enabling ssh and setting account"
+echo "setting account password"
 echo 'pi:cloudofthings' | sudo chpasswd
-sudo systemctl enable ssh
 
 echo "setting hostname to klot-io"
 sudo sed -i s/raspberrypi/klot-io/g /etc/hosts

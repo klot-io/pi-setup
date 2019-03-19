@@ -33,28 +33,21 @@ class Daemon(object):
 
     def reset(self):
 
-        if not os.path.exists("/boot/klot-io/reset"):
-            return
+        print "reseting"
 
-        self.execute("echo 'pi:cloudofthings' | chpasswd")
-
-        self.execute("hostnamectl set-hostname klot-io")
-        self.execute("sed -i 's/127.0.1.1\t.*/127.0.1.1\tklot-io/' /etc/hosts")
-
-        os.system("sed -i 's/allow-interfaces=.*/allow-interfaces=eth0/' /etc/avahi/avahi-daemon.conf" % expected)
-        self.execute("service avahi-daemon restart")
-
-        with open("/etc/wpa_supplicant/wpa_supplicant.conf", "w") as wpa_file:
-            wpa_file.write(WPA % ("NOPE", "nope", 'key_mgmt=NONE'))
-
-        self.execute("wpa_cli -i wlan0 reconfigure")
         self.execute("rm /boot/klot-io/reset")
+
+        with open("/opt/klot-io/config/account.yaml", "w") as yaml_file:
+            yaml.safe_dump({"password": "kloudofthings"}, yaml_file, default_flow_style=False)
+
+        with open("/opt/klot-io/config/network.yaml", "w") as yaml_file:
+            yaml.safe_dump({"interface": "eth0"}, yaml_file, default_flow_style=False)
+
+        with open("/opt/klot-io/config/kubernetes.yaml", "w") as yaml_file:
+            yaml.safe_dump({"role": "reset"}, yaml_file, default_flow_style=False)
 
     def restart(self):
         
-        if not os.path.exists("/boot/klot-io/bin/daemon.py"):
-            return
-
         print "restarting"
 
         self.execute("cp /boot/klot-io/bin/daemon.py /opt/klot-io/bin/daemon.py")
@@ -102,10 +95,14 @@ class Daemon(object):
 
     def account(self):
 
-        if "account" not in self.modified:
-            return
-
         self.execute("echo 'pi:%s' | chpasswd" % self.config["account"]["password"])
+
+        if self.config["account"]["ssh"] == "enabled":
+            self.execute("systemctl enable ssh")
+            self.execute("systemctl start ssh")
+        else:
+            self.execute("systemctl stop ssh")
+            self.execute("systemctl disable ssh")
 
     def network(self):
 
@@ -190,29 +187,34 @@ class Daemon(object):
 
     def kubernetes(self):
 
-        if "kubernetes" not in self.modified:
-            return
-
         if self.config["kubernetes"]["role"] == "reset":
+            self.host("klot-io")
             self.execute("kubeadm reset")
             self.execute("rm /opt/klot-io/config/kubernetes.yaml")
+            self.execute("rm /home/pi/.kube/config")
             self.execute("reboot")
-
-        interfaces = self.interfaces()
-
-        print "interfaces: %s" % interfaces
-
-        if self.config["network"]['interface'] not in interfaces:
             return
 
+        attempts = 20
+
+        while attempts:
+
+            interfaces = self.interfaces()
+            print "interfaces: %s" % interfaces
+
+            if self.config["network"]['interface'] in interfaces:
+                break
+
+            time.sleep(5)
+            attempts -= 1
+
         ip = interfaces[self.config["network"]['interface']]
-        domain = '%s-klot-io.local' % self.config["kubernetes"]["cluster"]
         encoded = hashlib.sha256(self.config["account"]["password"]).hexdigest()
         token = "%s.%s" % (encoded[13:19], encoded[23:39])
 
         if self.config["kubernetes"]["role"] == "master":
 
-            self.host(domain)
+            self.host('%s-klot-io' % self.config["kubernetes"]["cluster"])
 
             self.execute(" ".join([
                 'kubeadm',
@@ -239,33 +241,42 @@ class Daemon(object):
             config["current-context"] = self.config["kubernetes"]["cluster"]
 
             with open("/home/pi/.kube/config", "w") as config_file:
-                yaml.dump(config, config_file, default_flow_style=False)
+                yaml.safe_dump(config, config_file, default_flow_style=False)
 
             self.execute("chown pi:pi /home/pi/.kube/config")
             self.execute("sudo -u pi -- kubectl apply -f /opt/klot-io/config/kube-flannel.yml")
 
         elif self.config["kubernetes"]["role"] == "worker":
 
-            self.host("%s-%s" (self.config["kubernetes"]["name"], domain))
+            self.host("%s-%s-klot-io" % (self.config["kubernetes"]["name"], self.config["kubernetes"]["cluster"]))
 
             self.execute(" ".join([
                 'kubeadm',
                 'join',
-                '%s:6443' % socket.gethostbyname(domain),
+                '%s:6443' % socket.gethostbyname('%s-klot-io.local' % self.config["kubernetes"]["cluster"]),
                 '--token=%s' % token,
                 '--discovery-token-unsafe-skip-ca-verification'
             ]))
 
     def process(self):
 
-        self.reset()
-        self.restart()
-        self.reload()
+        if os.path.exists("/boot/klot-io/reset"):
+            self.reset()
 
+        if os.path.exists("/boot/klot-io/bin/daemon.py"):
+            self.restart()
+
+        self.reload()
         self.load()
-        self.account()
-        self.network()
-        self.kubernetes()
+
+        if "account" in self.modified:
+            self.account()
+
+        if "network" in self.modified:
+            self.network()
+
+        if "kubernetes" in self.modified:
+            self.kubernetes()
 
     def run(self):
 

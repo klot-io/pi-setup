@@ -1,21 +1,44 @@
 import os
 import yaml
+import socket
+import requests
+import platform
 import functools
 
 import flask
 import flask_restful
 
+import pykube
+
+
 def app():
 
     app = flask.Flask("klot-io-api")
 
+    app.kube = None
+
     api = flask_restful.Api(app)
 
     api.add_resource(Health, '/health')
-    api.add_resource(Auth, '/auth')
+    api.add_resource(Status, '/status')
     api.add_resource(Config, '/config')
+    api.add_resource(Node, '/node')
+    api.add_resource(Pod, '/pod')
 
     return app
+
+
+def kube():
+
+    if not os.path.exists("/home/pi/.kube/config"):
+
+        flask.current_app.kube = None
+
+    elif not flask.current_app.kube:
+
+        flask.current_app.kube = pykube.HTTPClient(pykube.KubeConfig.from_file("/home/pi/.kube/config"))
+
+    return flask.current_app.kube
 
 
 def require_auth(endpoint):
@@ -35,32 +58,54 @@ def require_auth(endpoint):
 
     return wrap
 
+
 class Health(flask_restful.Resource):
     def get(self):
         return {"message": "OK"}
 
 
-class Auth(flask_restful.Resource):
+class Status(flask_restful.Resource):
 
+    @require_auth
     def get(self):
 
-        with open("/opt/klot-io/config/account.yaml", "r") as config_file:
-            password = yaml.load(config_file)["password"]
+        if not os.path.exists("/opt/klot-io/config/kubernetes.yaml"):
 
-        if "klot-io-password" not in flask.request.headers:
-            return {"error": "missing password"}
+            status = "Uninitialized"
 
-        if flask.request.headers["klot-io-password"] != password:
-            return {"error": "invalid password"}
+        elif os.path.exists("/etc/kubernetes/bootstrap-kubelet.conf"):
 
-        return {"message": "OK"}
+            status = "Joined"
+
+        elif not os.path.exists("/etc/kubernetes/admin.conf"):
+
+            status = "Initializing"
+
+        elif not os.path.exists("/home/pi/.kube/config"):
+
+            status = "Creating"
+
+        else:
+
+            status = "NotReady"
+
+            for node in pykube.Node.objects(kube()).filter():
+                for condition in node.obj["status"]["conditions"]:
+                    if condition["type"] == "Ready" and condition["status"]:
+                        if node.obj["metadata"]["name"] != platform.node():
+                            status = "Workers"
+                        elif status == "NotReady":
+                            status = "Master"
+
+        return {"status": status}
 
 
 class Config(flask_restful.Resource):
 
     name = "config"
 
-    def settings(self, values=None):
+    @staticmethod
+    def settings(values=None):
 
         if values == None:
             values = {}
@@ -71,6 +116,14 @@ class Config(flask_restful.Resource):
                 "fields": [
                     {
                         "name": "password"
+                    },
+                    {
+                        "name": "ssh",
+                        "options": [
+                            "disabled",
+                            "enabled"
+                        ],
+                        "default": "disabled"
                     }
                 ]
             },
@@ -101,14 +154,20 @@ class Config(flask_restful.Resource):
                         "name": "role",
                         "options": [
                             "master",
-                            "worker",
-                            "reset"
+                            "worker"
                         ],
                         "trigger": True
                     }
                 ]
             }
         ]
+
+        if os.path.exists("/opt/klot-io/config/kubernetes.yaml"):
+
+            with open("/opt/klot-io/config/kubernetes.yaml", "r") as config_file:
+                role = yaml.load(config_file)["role"]
+            
+            settings[2]["fields"][1]["options"] = [role, "reset"]
 
         if "network" in values and "interface" in values["network"] and \
            values["network"]["interface"] == "wlan0":
@@ -121,7 +180,8 @@ class Config(flask_restful.Resource):
                 },
                 {
                     "name": "psk",
-                    "label": "password"
+                    "label": "password",
+                    "optional": True
                 }
             ])
 
@@ -142,28 +202,12 @@ class Config(flask_restful.Resource):
 
         return settings
 
-    def load(self):
-
-        loaded = {}
-
-        for setting in self.settings():
-            if os.path.exists("/opt/klot-io/config/%s.yaml" % setting["name"]):
-                with open("/opt/klot-io/config/%s.yaml" % setting["name"], "r") as config_file:
-                    loaded[setting["name"]] = yaml.load(config_file)
-            else:
-                loaded[setting["name"]] = {}
-
-        return loaded
-
-    def validate(self, settings, values):
+    @staticmethod
+    def validate(settings, values):
 
         errors = []
 
         for setting in settings:
-
-            if setting["name"] not in flask.request.json[self.name]:
-                errors.append("missing %s" % setting["name"])
-                continue
 
             for field in values[setting["name"]]:
                 if field not in [field["name"] for field in setting["fields"]]:
@@ -196,6 +240,20 @@ class Config(flask_restful.Resource):
                 errors.append("must specify a kuberentes worker name")
 
         return errors
+
+    @classmethod
+    def load(cls):
+
+        loaded = {}
+
+        for setting in cls.settings():
+            if os.path.exists("/opt/klot-io/config/%s.yaml" % setting["name"]):
+                with open("/opt/klot-io/config/%s.yaml" % setting["name"], "r") as config_file:
+                    loaded[setting["name"]] = yaml.load(config_file)
+            else:
+                loaded[setting["name"]] = {}
+
+        return loaded
 
     @require_auth
     def options(self):
@@ -235,3 +293,143 @@ class Config(flask_restful.Resource):
     def get(self):
 
         return {self.name: self.load()}
+
+
+class Node(flask_restful.Resource):
+
+    name = "node"
+
+    def uninitialized(self):
+
+        try:
+
+            socket.gethostbyname('klot-io.local')
+            return True
+
+        except:
+
+            return False
+
+    @require_auth
+    def get(self):
+
+        nodes = []
+
+        if self.uninitialized():
+            nodes.append({
+                "name": "klot-io",
+                "status": "Uninitialized",
+                "role": None
+            })
+
+        if kube():
+
+            master = None
+            workers = []
+
+            for obj in [node.obj for node in pykube.Node.objects(kube()).filter()]:
+
+                node = {
+                    "name": obj["metadata"]["name"],
+                    "status": "NotReady"
+                }
+
+                for condition in obj["status"]["conditions"]:
+                    if condition["type"] == "Ready" and condition["status"] == "True":
+                        node["status"] = "Ready"
+
+                if node["name"] == platform.node():
+                    node["role"] = "master"
+                    master = node
+                else:
+                    node["role"] = "worker"
+                    workers.append(node)
+
+            nodes.append(master)
+
+            nodes.extend(sorted(workers, key=lambda node: node["name"]))
+
+        return {"nodes": nodes}
+
+    @require_auth
+    def post(self):
+
+        if not self.uninitialized():
+            return {"error": "no uninitialized node found"}, 404
+
+        if self.name not in flask.request.json:
+            return {"error": "missing %s" % self.name}, 400
+
+        if "name" not in flask.request.json[self.name]:
+            return {"error": "missing %s.name" % self.name}, 400
+
+        config = Config.load()
+
+        config["kubernetes"]["role"] = "worker"
+        config["kubernetes"]["name"] = flask.request.json[self.name]["name"]
+
+        response = requests.post(
+            "http://klot-io.local/api/config",
+            headers={"klot-io-password": "kloudofthings"},
+            json={"config": config}
+        )
+
+        return response.json(), response.status_code
+
+    @require_auth
+    def delete(self):
+
+        if not kube():
+            return {"error": "not initialized"}, 400
+
+        if self.name not in flask.request.json:
+            return {"error": "missing %s" % self.name}, 400
+
+        try:
+
+            pykube.Node.objects(kube()).filter(
+                field_selector={"metadata.name": flask.request.json[self.name]}
+            ).get().delete()
+
+            config = Config.load()
+
+            config["kubernetes"]["role"] = "reset"
+
+            response = requests.post(
+                "http://%s.local/api/config" % flask.request.json[self.name],
+                headers={"klot-io-password": config["account"]["password"]},
+                json={"config": config}
+            )
+
+            return response.json(), response.status_code
+
+        except pykube.ObjectDoesNotExist:
+
+            return {"message": "node not found"}, 404
+
+class Pod(flask_restful.Resource):
+
+    @require_auth
+    def get(self):
+
+        pods = []
+
+        if kube():
+
+            namespace = flask.request.args["namespace"] if "namespace" in flask.request.args else pykube.all
+
+            for obj in [pod.obj for pod in pykube.Pod.objects(kube()).filter(namespace=namespace)]:
+
+                pod = {
+                    "namespace": obj["metadata"]["namespace"],
+                    "name": obj["metadata"]["name"],
+                    "status": obj["status"]["phase"],
+                    "node": None
+                }
+
+                if "nodeName" in obj["spec"]:
+                    pod["node"] = obj["spec"]["nodeName"]
+
+                pods.append(pod)
+
+        return {"pods": sorted(pods, key=lambda pod: pod["name"])}

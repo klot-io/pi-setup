@@ -1,0 +1,46 @@
+{{#def.Header}}
+<div class="uk-overflow-container">
+    <h2>Nodes</h2>
+    <table class="uk-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Role</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{~it.nodes :node}}
+            <tr>
+                <td>
+                    {{?node.role == "master"}}
+                        {{=node.name}}
+                    {{??}}
+                        <a href="http://{{!node.name}}.local">{{=node.name}}</a>
+                    {{?}}
+                </td>
+                <td>{{=node.status}}</td>
+                <td>
+                    {{?node.role}}
+                        {{=node.role}}
+                        {{?node.role == "worker"}}
+                        <button type="button" onClick="DRApp.current.controller.node_delete('{{=node.name}}');" class="uk-button uk-button-primary">
+                            Reset
+                        </button>
+                        {{?}}
+                    {{??}}
+                    <form class="uk-form"></form>
+                        <button type="button" onClick="DRApp.current.controller.node_join();" class="uk-button uk-button-primary">
+                            Join
+                        </button>
+                        as
+                        <input id="name" type="text" class="uk-form-width-small"/>
+                    </form>
+                    {{?}}
+                </td>
+            </tr>
+            {{~}}
+        </tbody>
+    </table>
+</div>
+{{#def.Footer}}

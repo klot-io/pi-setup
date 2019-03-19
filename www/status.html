@@ -1,0 +1,48 @@
+{{#def.Header}}
+<div class="uk-overflow-container">
+    <h2>Status - {{=DRApp.status}}</h2>
+    <table class="uk-table">
+        <thead>
+            <tr>
+                <th>Status</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Login</td>
+                <td>Need to log in before anything can happen.</td>
+            </tr>
+            <tr>
+                <td>Uninitialized</td>
+                <td>This has default settings.  Need to set cluster, role, etc.</td>
+            </tr>
+            <tr>
+                <td>Joined</td>
+                <td>This worker node has joined the master.</td>
+            </tr>
+            <tr>
+                <td>Initializing</td>
+                <td>This master node is just starting up.</td>
+            </tr>
+            <tr>
+                <td>Creating</td>
+                <td>This master node backplane is being created.</td>
+            </tr>
+            <tr>
+                <td>NotReady</td>
+                <td>This master node backplane is create but not ready.</td>
+            </tr>
+            <tr>
+                <td>Master</td>
+                <td>This master node is ready and there are no ready workers.</td>
+            </tr>
+            <tr>
+                <td>Workers</td>
+                <td>The master node is ready and at least one worker is ready.</td>
+            </tr>
+        </tbody>
+    </table>
+    </form>
+</div>
+{{#def.Footer}}

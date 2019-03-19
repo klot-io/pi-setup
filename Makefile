@@ -10,6 +10,7 @@ VOLUMES=-v ${PWD}/requirements.txt:/opt/klot-io/requirements.txt \
         -v ${PWD}/service/:/opt/klot-io/service/ \
         -v ${PWD}/images/:/opt/klot-io/images/
 PORT=8083
+HOST?=klot-io.local
 
 
 .PHONY: build shell boot daemon convert 
@@ -24,12 +25,16 @@ boot:
 	docker run --privileged=true -it --rm -v /Volumes/boot/:/opt/klot-io/boot/ $(VOLUMES) $(ACCOUNT)/$(IMAGE)-setup:$(VERSION) sh -c "bin/boot.py $(VERSION)"
 
 api:
-	scp lib/manage.py pi@klot-io.local:/opt/klot-io/lib/
-	ssh pi@klot-io.local "sudo systemctl restart klot-io-daemon"
+	scp lib/manage.py pi@$(HOST):/opt/klot-io/lib/
+	ssh pi@$(HOST) "sudo systemctl restart klot-io-api"
 
 daemon:
-	scp lib/config.py pi@klot-io.local:/opt/klot-io/lib/
-	ssh pi@klot-io.local "sudo systemctl restart klot-io-daemon"
+	scp lib/config.py pi@$(HOST):/opt/klot-io/lib/
+	ssh pi@$(HOST) "sudo systemctl restart klot-io-daemon"
+
+gui:
+	scp -r www pi@$(HOST):/opt/klot-io/
+	ssh pi@$(HOST) "sudo systemctl reload nginx"
 
 export:
 	bin/export.sh $(VERSION)

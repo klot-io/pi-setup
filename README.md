@@ -3,11 +3,13 @@ Setup Raspberry Pi's
 
 This just works on Mac for now.  Happy to do Windows and Linux when I have the chance.
 
+WARNING:  Only do this at home on a secure network.  This is by no means production ready. 
+
 # Getting Started
 
 Download image from <URL> and burn onto an SD card.
 
-## easiest
+## Easiest
 
 This is the easiest method, but should only be done on your own home network.
 
@@ -29,7 +31,25 @@ Watch your Status change as the Pi comes onlnie with Kuberentes
 
 Once enabled, wire another to the network.  It should appear in the status page. 
 
-Give it a name and network, and click Join.  YOu can watch it come online the Master node's status page.
+Give it a name and network, and click Join.  You can watch it come online the Master node's status page.
+
+## Secure
+
+This is a little more involved but more secure. 
+
+Pop the SD card out after burning and pop it back in.
+
+Type `make config` in this repo and go to http://127.0.0.1:8084 when docker compose is up.
+
+Configure this SD card, starting with the master first.  Repeat for each worker SD card.
+
+Put the cards in the Pi's and boot up.  After a few minutes, go to http://<cluster>-klot-io.local where <cluster> is the cluster you configured.
+
+## Apps
+
+Once you have a master node and a few workers, head over to Apps.
+
+Here you can install Apps.  Or you will.  I haven't done anything yet with this.
 
 # Build your own Firmware
 
