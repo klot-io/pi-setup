@@ -22,6 +22,7 @@ def app():
     api.add_resource(Health, '/health')
     api.add_resource(Status, '/status')
     api.add_resource(Config, '/config')
+    api.add_resource(Kubectl, '/kubectl')
     api.add_resource(Node, '/node')
     api.add_resource(Pod, '/pod')
 
@@ -154,7 +155,8 @@ class Config(flask_restful.Resource):
                         "name": "role",
                         "options": [
                             "master",
-                            "worker"
+                            "worker",
+                            "reset"
                         ],
                         "trigger": True
                     }
@@ -173,7 +175,8 @@ class Config(flask_restful.Resource):
            values["network"]["interface"] == "wlan0":
             settings[1]["fields"].extend([
                 {
-                    "name": "country"
+                    "name": "country",
+                    "default": "US"
                 },
                 {
                     "name": "ssid"
@@ -293,6 +296,59 @@ class Config(flask_restful.Resource):
     def get(self):
 
         return {self.name: self.load()}
+
+
+class Kubectl(flask_restful.Resource):
+
+    name = "kubectl"
+
+    @staticmethod
+    def load():
+
+        loaded = {}
+
+        if os.path.exists("/home/pi/.kube/config"):
+            with open("/home/pi/.kube/config", "r") as config_file:
+                loaded = yaml.load(config_file)
+
+        return loaded
+
+    @require_auth
+    def get(self):
+
+        local = self.load()
+
+        if not local:
+            return {"error": "kubectl config not found"}, 404
+
+        return {self.name: local}
+
+    @require_auth
+    def post(self):
+
+        local = self.load()
+
+        if not local:
+            return {"error": "kubectl config not found"}, 404
+
+        if self.name not in flask.request.json:
+            return {"error": "missing %s" % self.name}
+
+        remote = flask.request.json[self.name]
+
+        for key in ["clusters", "users", "contexts"]:
+            remove = None
+            for index, item in enumerate(remote[key]):
+                if item["name"] == local["current-context"]:
+                    remove = index
+            if remove is not None:
+                 remote[key].pop(remove)
+
+            remote[key].extend(local[key])
+
+        remote["current-context"] = local["current-context"]
+
+        return {self.name: remote}
 
 
 class Node(flask_restful.Resource):

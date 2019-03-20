@@ -8,12 +8,13 @@ VOLUMES=-v ${PWD}/requirements.txt:/opt/klot-io/requirements.txt \
         -v ${PWD}/bin/:/opt/klot-io/bin/ \
         -v ${PWD}/config/:/opt/klot-io/config/ \
         -v ${PWD}/service/:/opt/klot-io/service/ \
-        -v ${PWD}/images/:/opt/klot-io/images/
+        -v ${PWD}/images/:/opt/klot-io/images/ \
+		-v ${PWD}/secret/:/opt/klot-io/secret/
 PORT=8083
 HOST?=klot-io.local
 
 
-.PHONY: build shell boot daemon convert 
+.PHONY: build shell boot api daemon gui export shrink config clean kubectl
 
 build:
 	docker build . -f Dockerfile.setup -t $(ACCOUNT)/$(IMAGE)-setup:$(VERSION)
@@ -43,7 +44,19 @@ shrink:
 	docker run --privileged=true -it --rm $(VOLUMES) $(ACCOUNT)/$(IMAGE):$(VERSION) sh -c "pishrink.sh images/pi-$(VERSION).img"
 
 config:
+	cp config/*.yaml /Volumes/boot/klot-io/config/
 	docker-compose -f docker-compose.yml up
 
 clean:
 	docker-compose -f docker-compose.yml down
+
+kubectl:
+ifeq (,$(wildcard /usr/local/bin/kubectl))
+	curl -LO https://storage.googleapis.com/kubernetes-release/release/$(KUBECTL_VERSION)/bin/darwin/amd64/kubectl
+	chmod +x ./kubectl
+	sudo mv ./kubectl /usr/local/bin/kubectl
+endif
+	mkdir -p secret
+	[ -f ~/.kube/config ] && cp ~/.kube/config secret/kubectl || [ ! -f ~/.kube/config ]
+	docker run -it $(VARIABLES) $(VOLUMES) $(ACCOUNT)/$(IMAGE)-setup:$(VERSION) bin/kubectl.py
+	cp secret/kubectl ~/.kube/config

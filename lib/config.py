@@ -214,7 +214,8 @@ class Daemon(object):
 
         if self.config["kubernetes"]["role"] == "master":
 
-            self.host('%s-klot-io' % self.config["kubernetes"]["cluster"])
+            host = '%s-klot-io' % self.config["kubernetes"]["cluster"]
+            self.host(host)
 
             self.execute(" ".join([
                 'kubeadm',
@@ -233,12 +234,12 @@ class Daemon(object):
                 config = yaml.load(config_file)
 
             config["clusters"][0]["cluster"]["server"] = 'https://%s:6443' % ip
-            config["clusters"][0]["name"] = self.config["kubernetes"]["cluster"]
-            config["users"][0]["name"] = self.config["kubernetes"]["cluster"]
-            config["contexts"][0]["name"] = self.config["kubernetes"]["cluster"]
-            config["contexts"][0]["context"]["cluster"] = self.config["kubernetes"]["cluster"]
-            config["contexts"][0]["context"]["user"] = self.config["kubernetes"]["cluster"]
-            config["current-context"] = self.config["kubernetes"]["cluster"]
+            config["clusters"][0]["name"] = host
+            config["users"][0]["name"] = host
+            config["contexts"][0]["name"] = host
+            config["contexts"][0]["context"]["cluster"] = host
+            config["contexts"][0]["context"]["user"] = host
+            config["current-context"] = host
 
             with open("/home/pi/.kube/config", "w") as config_file:
                 yaml.safe_dump(config, config_file, default_flow_style=False)
