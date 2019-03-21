@@ -41,7 +41,8 @@ export:
 	bin/export.sh $(VERSION)
 
 shrink:
-	docker run --privileged=true -it --rm $(VOLUMES) $(ACCOUNT)/$(IMAGE):$(VERSION) sh -c "pishrink.sh images/pi-$(VERSION).img"
+	docker build . -f Dockerfile.shrink -t $(ACCOUNT)/$(IMAGE)-shrink:$(VERSION)
+	docker run --privileged=true -it --rm $(VOLUMES) $(ACCOUNT)/$(IMAGE)-shrink:$(VERSION) sh -c "pishrink.sh images/pi-$(VERSION).img"
 
 config:
 	cp config/*.yaml /Volumes/boot/klot-io/config/

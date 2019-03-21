@@ -27,6 +27,9 @@
             <li {{? DRApp.current.paths[0] == 'config' }}class="uk-active"{{?}}>
                 <a href="{{=DRApp.link('config')}}">Config</a>
             </li>
+            <li {{? DRApp.current.paths[0] == 'log' }}class="uk-active"{{?}}>
+                <a href="{{=DRApp.link('log')}}">Logs</a>
+            </li>
             {{?}}
             {{? DRApp.STATUSES[DRApp.status] > DRApp.STATUSES["Login"]}}
             <li>

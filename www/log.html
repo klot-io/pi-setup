@@ -1,0 +1,10 @@
+{{#def.Header}}
+<div class="uk-overflow-container">
+    <h2>Logs</h2>
+    <pre>
+        {{~it.lines :line}}
+        {{=new Date(line.timestamp * 1000).toISOString().slice(0, -5)}} - {{=line.message + "\n"}}
+        {{~}}
+    </pre>
+</div>
+{{#def.Footer}}

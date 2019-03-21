@@ -99,6 +99,15 @@ DRApp.controller("Base",null,{
         $.cookie('klot-io-password', DRApp.password);
         this.application.go("home");
     },
+    log: function() {
+        this.loading();
+        this.update_status();
+        this.it = {
+            lines: this.rest("GET","/api/log").lines
+        };
+        this.application.render(this.it);
+        this.start();
+    },
     config: function() {
         this.update_status();
         this.it = {
@@ -128,6 +137,7 @@ DRApp.controller("Base",null,{
             settings: this.rest("OPTIONS","/api/config", {config: this.config_input()}).settings
         };
         this.application.render(this.it);
+        this.start();
     },
     config_update: function() {
         this.loading();
@@ -209,6 +219,7 @@ DRApp.partial("Footer",DRApp.load("footer"));
 
 DRApp.template("Home",DRApp.load("home"),null,DRApp.partials);
 DRApp.template("Login",DRApp.load("login"),null,DRApp.partials);
+DRApp.template("Log",DRApp.load("log"),null,DRApp.partials);
 DRApp.template("Config",DRApp.load("config"),null,DRApp.partials);
 DRApp.template("Status",DRApp.load("status"),null,DRApp.partials);
 DRApp.template("Pod",DRApp.load("pod"),null,DRApp.partials);
@@ -218,6 +229,7 @@ DRApp.template("App",DRApp.load("app"),null,DRApp.partials);
 DRApp.route("home","/","Home","Base", "home")
 DRApp.route("login","/login","Login","Base", "login")
 DRApp.route("logout","/logout","Login","Base", "logout")
+DRApp.route("log","/log","Log","Base", "log", "stop")
 DRApp.route("config","/config","Config","Base","config", "stop");
 DRApp.route("status","/status","Status","Base","status", "stop");
 DRApp.route("pod","/pod","Pod","Base","pod", "stop");

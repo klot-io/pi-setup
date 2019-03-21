@@ -3,12 +3,14 @@ import yaml
 import socket
 import requests
 import platform
+import calendar
 import functools
 
 import flask
 import flask_restful
 
 import pykube
+import systemd.journal
 
 
 def app():
@@ -20,8 +22,9 @@ def app():
     api = flask_restful.Api(app)
 
     api.add_resource(Health, '/health')
-    api.add_resource(Status, '/status')
+    api.add_resource(Log, '/log')
     api.add_resource(Config, '/config')
+    api.add_resource(Status, '/status')
     api.add_resource(Kubectl, '/kubectl')
     api.add_resource(Node, '/node')
     api.add_resource(Pod, '/pod')
@@ -50,10 +53,10 @@ def require_auth(endpoint):
             password = yaml.load(config_file)["password"]
 
         if "klot-io-password" not in flask.request.headers:
-            return {"message": "missing password"}, 400
+            return {"error": "missing password"}, 400
 
         if flask.request.headers["klot-io-password"] != password:
-            return {"message": "invalid password"}, 401
+            return {"error": "invalid password"}, 401
 
         return endpoint(*args, **kwargs)
 
@@ -65,40 +68,32 @@ class Health(flask_restful.Resource):
         return {"message": "OK"}
 
 
-class Status(flask_restful.Resource):
+class Log(flask_restful.Resource):
 
     @require_auth
     def get(self):
 
-        if not os.path.exists("/opt/klot-io/config/kubernetes.yaml"):
+        reader = systemd.journal.Reader()
+        reader.add_match(_SYSTEMD_UNIT="klot-io-daemon.service")
+        reader.seek_tail()
 
-            status = "Uninitialized"
+        back = int(flask.request.args["back"]) if "back" in flask.request.args else 60
 
-        elif os.path.exists("/etc/kubernetes/bootstrap-kubelet.conf"):
+        lines = []
 
-            status = "Joined"
+        for index in xrange(back):
 
-        elif not os.path.exists("/etc/kubernetes/admin.conf"):
+            line = reader.get_previous()
 
-            status = "Initializing"
+            if not line:
+                break
+            
+            lines.insert(0, {
+                "timestamp": calendar.timegm(line["__REALTIME_TIMESTAMP"].timetuple()),
+                "message": line['MESSAGE']
+            }) 
 
-        elif not os.path.exists("/home/pi/.kube/config"):
-
-            status = "Creating"
-
-        else:
-
-            status = "NotReady"
-
-            for node in pykube.Node.objects(kube()).filter():
-                for condition in node.obj["status"]["conditions"]:
-                    if condition["type"] == "Ready" and condition["status"]:
-                        if node.obj["metadata"]["name"] != platform.node():
-                            status = "Workers"
-                        elif status == "NotReady":
-                            status = "Master"
-
-        return {"status": status}
+        return {"lines": lines}
 
 
 class Config(flask_restful.Resource):
@@ -351,6 +346,42 @@ class Kubectl(flask_restful.Resource):
         return {self.name: remote}
 
 
+class Status(flask_restful.Resource):
+
+    @require_auth
+    def get(self):
+
+        if not os.path.exists("/opt/klot-io/config/kubernetes.yaml"):
+
+            status = "Uninitialized"
+
+        elif os.path.exists("/etc/kubernetes/bootstrap-kubelet.conf"):
+
+            status = "Joined"
+
+        elif not os.path.exists("/etc/kubernetes/admin.conf"):
+
+            status = "Initializing"
+
+        elif not os.path.exists("/home/pi/.kube/config"):
+
+            status = "Creating"
+
+        else:
+
+            status = "NotReady"
+
+            for node in pykube.Node.objects(kube()).filter():
+                for condition in node.obj["status"]["conditions"]:
+                    if condition["type"] == "Ready" and condition["status"]:
+                        if node.obj["metadata"]["name"] != platform.node():
+                            status = "Workers"
+                        elif status == "NotReady":
+                            status = "Master"
+
+        return {"status": status}
+
+
 class Node(flask_restful.Resource):
 
     name = "node"
@@ -461,7 +492,7 @@ class Node(flask_restful.Resource):
 
         except pykube.ObjectDoesNotExist:
 
-            return {"message": "node not found"}, 404
+            return {"error": "node not found"}, 404
 
 class Pod(flask_restful.Resource):
 
