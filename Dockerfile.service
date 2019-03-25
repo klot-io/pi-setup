@@ -4,9 +4,9 @@ RUN mkdir -p /opt/klot-io
 
 WORKDIR /opt/klot-io
 
-RUN apk add build-base openssl-dev libffi-dev
+RUN apk add build-base openssl-dev libffi-dev git
 
-ADD requirements.txt .
+ADD config_requirements.txt requirements.txt
 
 RUN pip install -r requirements.txt
 

@@ -1,6 +1,8 @@
 import os
+import glob
 import yaml
 import socket
+import urlparse
 import requests
 import platform
 import calendar
@@ -10,8 +12,14 @@ import flask
 import flask_restful
 
 import pykube
-import systemd.journal
 
+class App(pykube.objects.APIObject):
+
+    version = "klot.io/v1"
+    endpoint = "apps"
+    kind = "App"
+
+pykube.App = App
 
 def app():
 
@@ -22,12 +30,15 @@ def app():
     api = flask_restful.Api(app)
 
     api.add_resource(Health, '/health')
-    api.add_resource(Log, '/log')
+    api.add_resource(Log, '/log/<string:service>')
     api.add_resource(Config, '/config')
     api.add_resource(Status, '/status')
     api.add_resource(Kubectl, '/kubectl')
     api.add_resource(Node, '/node')
     api.add_resource(Pod, '/pod')
+    api.add_resource(AppLP, '/app')
+    api.add_resource(AppRIU, '/app/<string:name>')
+    api.add_resource(Label, '/label')
 
     return app
 
@@ -71,10 +82,15 @@ class Health(flask_restful.Resource):
 class Log(flask_restful.Resource):
 
     @require_auth
-    def get(self):
+    def get(self, service):
+
+        import systemd.journal
+
+        if service not in ["daemon", "api", "gui"]:
+            return {"error": "invalid service: %s" % sevice}, 400
 
         reader = systemd.journal.Reader()
-        reader.add_match(_SYSTEMD_UNIT="klot-io-daemon.service")
+        reader.add_match(_SYSTEMD_UNIT="nginx.service" if service == "gui" else "klot-io-%s.service" % service)
         reader.seek_tail()
 
         back = int(flask.request.args["back"]) if "back" in flask.request.args else 60
@@ -144,9 +160,6 @@ class Config(flask_restful.Resource):
                 "name": "kubernetes",
                 "fields": [
                     {
-                        "name": "cluster"
-                    },
-                    {
                         "name": "role",
                         "options": [
                             "master",
@@ -164,7 +177,8 @@ class Config(flask_restful.Resource):
             with open("/opt/klot-io/config/kubernetes.yaml", "r") as config_file:
                 role = yaml.load(config_file)["role"]
             
-            settings[2]["fields"][1]["options"] = [role, "reset"]
+            if role != "reset":
+                settings[2]["fields"][0]["options"] = [role, "reset"]
 
         if "network" in values and "interface" in values["network"] and \
            values["network"]["interface"] == "wlan0":
@@ -183,13 +197,21 @@ class Config(flask_restful.Resource):
                 }
             ])
 
-        if "kubernetes" in values and \
-           "role" in values["kubernetes"] and values["kubernetes"]["role"] == "worker":
-            settings[2]["fields"].extend([
-                {
-                    "name": "name"
-                }
-            ])
+        if "kubernetes" in values and "role" in values["kubernetes"]: 
+        
+            if values["kubernetes"]["role"] != "reset":
+                settings[2]["fields"].extend([
+                    {
+                        "name": "cluster"
+                    }
+                ])
+
+            if values["kubernetes"]["role"] == "worker":
+                settings[2]["fields"].extend([
+                    {
+                        "name": "name"
+                    }
+                ])
 
         for setting in settings:
             for field in setting["fields"]:
@@ -520,3 +542,271 @@ class Pod(flask_restful.Resource):
                 pods.append(pod)
 
         return {"pods": sorted(pods, key=lambda pod: pod["name"])}
+
+
+class App(flask_restful.Resource):
+
+    singular = "app"
+    plural = "apps"
+
+class AppLP(App):
+
+    @require_auth
+    def get(self):
+
+        apps = []
+
+        if kube():
+
+            for obj in [app.obj for app in pykube.App.objects(kube()).filter()]:
+
+                app = {
+                    "name": obj["metadata"]["name"],
+                    "description": obj["metadata"]["description"],
+                    "labels": obj["spec"]["labels"],
+                    "status": "Preview"
+                }
+
+                if "status" in obj:
+                    app["status"] = obj["status"]
+
+                apps.append(app)
+
+        return {self.plural: sorted(apps, key=lambda app: app["name"])}
+
+    @require_auth
+    def post(self):
+
+        if not kube():
+            return {"error": "kubernetes not available"}, 503
+
+        if "source" not in flask.request.json:
+            return {"error": "missing source"}, 400
+
+        source = flask.request.json["source"]
+
+        if "url" in source:
+
+            url = source["url"]
+
+        elif "site" in source and source["site"] == "github.com":
+
+            if "repo" not in source:
+                return {"error": "missing source.repo for %s" % source["site"]}, 400
+
+            repo = source["repo"]
+            version = source["version"] if "version" in source else "master"
+            path = source["path"] if "path" in source else "klot-io-app.yaml"
+
+            url = "https://raw.githubusercontent.com/%s/%s/%s" % (repo, version, path)
+
+        else:
+
+            return {"error": "cannot preview %s" % source}, 400
+
+        response = requests.get(url)
+
+        if response.status_code != 200:
+            return {"error from %s" % url: response.text}, response.status_code
+
+        obj = yaml.safe_load(response.text)
+
+        pykube.App(kube(), obj).create()
+
+        return {"message": "%s queued for preview" % obj["metadata"]["name"]}, 202
+
+class AppRIU(App):
+
+    @require_auth
+    def get(self, name):
+
+        app = {}
+
+        if kube():
+
+            obj = pykube.App.objects(kube()).filter().get(name=name).obj
+
+            app = {
+                "name": obj["metadata"]["name"],
+                "description": obj["metadata"]["description"],
+                "labels": obj["spec"]["labels"],
+                "status": "Preview"
+            }
+
+            if "status" in obj:
+                app["status"] = obj["status"]
+
+            if "resources" in obj:
+                app["resources"] = obj["resources"]
+
+            if "settings" in obj:
+                app["settings"] = obj["settings"]
+
+        return {self.singular: app}
+
+    @require_auth
+    def post(self, name):
+
+        if not kube():
+            return {"error": "kubernetes not available"}, 503
+
+        obj = pykube.App.objects(kube()).filter().get(name=name).obj
+
+        if obj["status"] != "Ready":
+            return {"error": "%s App not Ready" % name}
+
+        obj["status"] = "Install"
+
+        pykube.App(kube(), obj).replace()
+
+        return {"message": "%s queued for install" % name}, 201
+
+
+    @require_auth
+    def delete(self, name):
+
+        if not kube():
+            return {"error": "kubernetes not available"}, 503
+
+        obj = pykube.App.objects(kube()).filter().get(name=name).obj
+
+        if obj["status"] != "Installed":
+            return {"error": "%s App not Installed" % name}
+
+        obj["status"] = "Uninstall"
+
+        pykube.App(kube(), obj).replace()
+
+        return {"message": "%s queued for uninstall" % name}, 201
+
+
+class Label(flask_restful.Resource):
+
+    singular = "label"
+    plural = "labels"
+
+    @require_auth
+    def get(self):
+
+        labels = []
+
+        if kube():
+
+            app_filter = {}
+
+            if "app" in flask.request.args:
+                app_filter["field_selector"] = {"metadata.name": flask.request.args["app"]}
+
+            node_filter = {}
+
+            if "node" in flask.request.args:
+                node_filter["field_selector"] = {"metadata.name": flask.request.args["node"]}
+
+            for obj in [app.obj for app in pykube.App.objects(kube()).filter(**app_filter)]:
+                if "labels" in obj["spec"]:
+                    for label in obj["spec"]["labels"]:
+                        labels.append({
+                            "app": obj["metadata"]["name"],
+                            "name": label["name"],
+                            "value": label["value"],
+                            "description": label["description"],
+                            "master": label["master"] if "master" in label else False,
+                            "nodes": []
+                        })
+
+            for obj in [node.obj for node in pykube.Node.objects(kube()).filter(**node_filter)]:
+                if "labels" in obj["metadata"]:
+                    for node_label in obj["metadata"]["labels"]:
+                        for app_label in labels:
+                            if (
+                                node_label == "%s/%s" % (app_label["app"], app_label["name"]) and
+                                obj["metadata"]["labels"][node_label] == app_label["value"]
+                            ):
+                                app_label["nodes"].append(obj["metadata"]["name"])
+                        
+        return {self.plural: sorted(labels, key=lambda label: "%s/%s=%s" % (label["app"], label["name"], label["value"]))}
+
+    @require_auth
+    def post(self):
+
+        if not kube():
+            return {"error": "kubernetes not available"}, 503
+
+        if self.singular not in flask.request.json:
+            return {"error": "missing %s" % self.singular}, 400
+
+        label = flask.request.json[self.singular]
+
+        errors = []
+
+        for field in ["app", "name", "value", "node"]:
+            if field not in label:
+                errors.append("missing %s.%s" % (self.singular, field))
+
+        if errors:
+            return {"errors": errors}, 400
+
+        app_labels = {}
+
+        for obj in [app.obj for app in pykube.App.objects(kube()).filter()]:
+            if "labels" in obj["spec"]:
+                for app_label in obj["spec"]["labels"]:
+                    app_labels["%s/%s=%s" % (obj["metadata"]["name"], app_label["name"], app_label["value"])] = app_label
+
+        if "%s/%s=%s" % (label["app"], label["name"], label["value"]) not in app_labels:
+            return {"error": "invalid label %s/%s=%s" % (label["app"], label["name"], label["value"])}, 400
+
+        app_label = app_labels["%s/%s=%s" % (label["app"], label["name"], label["value"])]
+
+        obj = pykube.Node.objects(kube()).filter().get(name=flask.request.json[self.singular]["node"]).obj
+
+        if obj["metadata"]["name"] == platform.node() and ("master" not in app_label or not app_label["master"]):
+            return {"error": "can't label master with %s/%s=%s" % (label["app"], label["name"], label["value"])}, 400
+
+        if "labels" not in obj["metadata"]:
+            obj["metadata"]["labels"] = {}
+
+        obj["metadata"]["labels"]["%s/%s" % (label["app"], label["name"])] = label["value"]
+
+        pykube.Node(kube(), obj).replace()
+                        
+        return {"message": "%s labeled %s/%s=%s" % (label["node"], label["app"], label["name"], label["value"])}
+
+    @require_auth
+    def delete(self):
+
+        if not kube():
+            return {"error": "kubernetes not available"}, 503
+
+        if self.singular not in flask.request.json:
+            return {"error": "missing %s" % self.singular}, 400
+
+        label = flask.request.json[self.singular]
+
+        errors = []
+
+        for field in ["app", "name", "node"]:
+            if field not in label:
+                errors.append("missing %s.%s" % (self.singular, field))
+
+        if errors:
+            return {"errors": errors}, 400
+
+        app_labels = []
+
+        for obj in [app.obj for app in pykube.App.objects(kube()).filter()]:
+            if "labels" in obj["spec"]:
+                for app_label in obj["spec"]["labels"]:
+                    app_labels.append("%s/%s" % (obj["metadata"]["name"], app_label["name"]))
+
+        if "%s/%s" % (label["app"], label["name"]) not in app_labels:
+            return {"error": "invalid label %s/%s" % (label["app"], label["name"])}, 400
+
+        obj = pykube.Node.objects(kube()).filter().get(name=flask.request.json[self.singular]["node"]).obj
+
+        if "labels" in obj["metadata"] and "%s/%s" % (label["app"], label["name"]) in obj["metadata"]["labels"]:
+            del obj["metadata"]["labels"]["%s/%s" % (label["app"], label["name"])]
+
+        pykube.Node(kube(), obj).replace()
+                        
+        return {"message": "%s unlabeled %s/%s" % (label["node"], label["app"], label["name"])}

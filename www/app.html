@@ -1,5 +1,67 @@
 {{#def.Header}}
 <div class="uk-overflow-container">
-    App
+    <h2>App - {{=it.app.name}}</h2>
+    {{?it.message}}
+    <div class="uk-alert uk-alert-success">
+        {{=it.message}}
+    </div>
+    {{?}}
+    <form class="uk-form uk-form-horizontal">
+        <div class="uk-form-row">
+            <label class="uk-form-label" for="name">name:</label>
+            {{=it.app.name}}
+        </div>
+        <div class="uk-form-row">
+            <label class="uk-form-label" for="description">description:</label>
+            {{=it.app.description}}
+        </div>
+        <div class="uk-form-row">
+            <label class="uk-form-label" for="labels">labels:</label>
+            {{~it.labels :label}}
+            {{=label.name}}={{=label.value}}:
+            {{~it.nodes :node}} 
+            {{? node.role == "worker" || (node.role == "master" && label.master)}}
+            <label
+                ><input 
+                    type="checkbox" id='{{!label.name}}-{{!node.name}}' value='{{!label.value}}'
+                    {{? label.nodes.indexOf(node.name) > -1 }}checked{{?}}
+                    OnClick="DRApp.current.controller.app_label('{{!label.name}}','{{!node.name}}');"
+                > {{=node.name}}
+            </label>
+            {{?}}
+            {{~}}
+            <br/>
+            {{~}}
+        </div>
+        <div class="uk-form-row">
+            <label class="uk-form-label" for="status">status:</label>
+            {{=it.app.status}}
+            {{?it.app.status == "Ready"}}
+            <button type="button" onClick="DRApp.current.controller.app_install();" class="uk-button uk-button-primary">
+                Install
+            </button>
+            {{??it.app.status == "Installed"}}
+            <button type="button" onClick="DRApp.current.controller.app_uninstall();" class="uk-button uk-button-primary">
+                Uninstall
+            </button>
+            {{?}}
+        </div>
+        {{?it.app.status == "Installed"}}
+        <div class="uk-form-row">
+            <label class="uk-form-label" for="settings">settings:</label>
+            <pre>
+                {{=JSON.stringify(it.app.settings, null, 2)}}
+            </pre>
+        </div>
+        {{?}}
+        {{?it.app.resources}}
+        <div class="uk-form-row">
+            <label class="uk-form-label" for="resources">resources:</label>
+            <pre>
+                {{=JSON.stringify(it.app.resources, null, 2)}}
+            </pre>
+        </div>
+        {{?}}
+    </form>
 </div>
 {{#def.Footer}}

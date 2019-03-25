@@ -1,0 +1,52 @@
+{{#def.Header}}
+<div class="uk-overflow-container">
+    <h2>Apps</h2>
+    {{?it.message}}
+    <div class="uk-alert uk-alert-success">
+        {{=it.message}}
+    </div>
+    {{?}}
+    <form class="uk-form">
+        <div class="uk-form-row">
+            <button type="button" onClick="DRApp.current.controller.app_preview();" class="uk-button uk-button-primary">
+                Preview
+            </button>
+            from
+            <input 
+                type="radio" name="from" value="github"
+                OnClick="DRApp.current.controller.preview_change();"
+            /> GitHub
+            <input 
+                type="radio" name="from" value="url" 
+                OnClick="DRApp.current.controller.preview_change();"
+            /> URL
+        </div>
+        <div id="from_github" class="uk-form-row" style="display: none;">
+            <input id="repo" type="text" placeholder="owner/project" class="uk-form-width-medium"/>
+            <input id="version" type="text" placeholder="master" class="uk-form-width-small"/>
+            <input id="path" type="text" placeholder="klot-io-app.yaml" class="uk-form-width-medium"/>
+        </div>
+        <div id="from_url" class="uk-form-row" style="display: none;">
+            <input id="url" placeholder="url" type="text" class="uk-form-width-large"/>
+        </div>
+    </form>
+    <table class="uk-table uk-table-hover">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{~it.apps :app}}
+            <tr OnClick="DRApp.go('app','{{!app.name}}')">
+                <td>{{=app.name}}</td>
+                <td>{{=app.description}}</td>
+                <td>{{=app.status}}</td>
+            </tr>
+            {{~}}
+        </tbody>
+    </table>
+</div>
+{{#def.Footer}}

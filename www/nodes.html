@@ -7,6 +7,7 @@
                 <th>Name</th>
                 <th>Status</th>
                 <th>Role</th>
+                <th>Labels</th>
             </tr>
         </thead>
         <tbody>
@@ -37,6 +38,12 @@
                         <input id="name" type="text" class="uk-form-width-small"/>
                     </form>
                     {{?}}
+                </td>
+                <td>
+                {{~it.labels :labe}}
+                {{?label.nodes.indexOf(node.name) > 1}}
+                    {{=label.app}}/{{=label.name}}={{=label.value}}<br/>
+                {{~}}
                 </td>
             </tr>
             {{~}}

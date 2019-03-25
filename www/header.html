@@ -5,17 +5,17 @@
         <ul class="uk-navbar-nav">
             {{? DRApp.STATUSES[DRApp.status] >= DRApp.STATUSES["Workers"] }}
             <li {{? DRApp.current.paths[0] == 'app' }}class="uk-active"{{?}}>
-                <a href="{{=DRApp.link('app')}}">Apps</a>
+                <a href="{{=DRApp.link('apps')}}">Apps</a>
             </li>
             {{?}}
             {{? DRApp.STATUSES[DRApp.status] >= DRApp.STATUSES["Master"] }}
             <li {{? DRApp.current.paths[0] == 'pod' }}class="uk-active"{{?}}>
-                <a href="{{=DRApp.link('pod')}}">Pods</a>
+                <a href="{{=DRApp.link('pods')}}">Pods</a>
             </li>
             {{?}}
             {{? DRApp.STATUSES[DRApp.status] >= DRApp.STATUSES["NotReady"] }}
             <li {{? DRApp.current.paths[0] == 'node' }}class="uk-active"{{?}}>
-                <a href="{{=DRApp.link('node')}}">Nodes</a>
+                <a href="{{=DRApp.link('nodes')}}">Nodes</a>
             </li>
             {{?}}
             {{? DRApp.STATUSES[DRApp.status] >= DRApp.STATUSES["Joined"] }}
@@ -27,8 +27,15 @@
             <li {{? DRApp.current.paths[0] == 'config' }}class="uk-active"{{?}}>
                 <a href="{{=DRApp.link('config')}}">Config</a>
             </li>
-            <li {{? DRApp.current.paths[0] == 'log' }}class="uk-active"{{?}}>
-                <a href="{{=DRApp.link('log')}}">Logs</a>
+            <li class="uk-parent{{? DRApp.current.paths[0] == 'log' }} uk-active{{?}}" data-uk-dropdown="" aria-haspopup="true" aria-expanded="false">
+                <a>Logs</a>
+                <div class="uk-dropdown uk-dropdown-navbar uk-dropdown-bottom" aria-hidden="true" style="top: 40px; left: 0px;" tabindex="">
+                    <ul class="uk-nav uk-nav-navbar">
+                        <li><a href="{{=DRApp.link('logs', 'daemon')}}">daemon</a></li>
+                        <li><a href="{{=DRApp.link('logs', 'api')}}">api</a></li>
+                        <li><a href="{{=DRApp.link('logs', 'gui')}}">gui</a></li>
+                    </ul>
+                </div>
             </li>
             {{?}}
             {{? DRApp.STATUSES[DRApp.status] > DRApp.STATUSES["Login"]}}

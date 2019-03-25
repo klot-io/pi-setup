@@ -1,11 +1,27 @@
 import os
 import time
+import copy
 import glob
-import yaml
 import socket
 import hashlib
-import netifaces
+
 import traceback
+
+import yaml
+import pykube
+import urlparse
+import requests
+import netifaces
+
+
+class App(pykube.objects.APIObject):
+
+    version = "klot.io/v1"
+    endpoint = "apps"
+    kind = "App"
+
+pykube.App = App
+
 
 WPA = """ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
 update_config=1
@@ -18,6 +34,21 @@ network={
 }
 """
 
+
+RESOURCES = {
+    "Namespace": 1,
+    "ServiceAccont": 2,
+    "ClusterRole": 3,
+    "ClusterRoleBinding": 4,
+    "Role": 5,
+    "RoleBinding": 6,
+    "*": 7
+}
+
+
+class AppException(Exception):
+    pass
+
 class Daemon(object):
 
     def __init__(self):
@@ -25,6 +56,8 @@ class Daemon(object):
        self.config = {}
        self.mtimes = {}
        self.modified = []
+
+       self.kube = None
 
     def execute(self, command):
 
@@ -214,6 +247,10 @@ class Daemon(object):
 
         if self.config["kubernetes"]["role"] == "master":
 
+            if os.path.exists("/home/pi/.kube/config"):
+                print "already initialized master"
+                return
+
             host = '%s-klot-io' % self.config["kubernetes"]["cluster"]
             self.host(host)
 
@@ -245,9 +282,14 @@ class Daemon(object):
                 yaml.safe_dump(config, config_file, default_flow_style=False)
 
             self.execute("chown pi:pi /home/pi/.kube/config")
-            self.execute("sudo -u pi -- kubectl apply -f /opt/klot-io/config/kube-flannel.yml")
+            self.execute("sudo -u pi -- kubectl apply -f /opt/klot-io/kubernetes/kube-flannel.yml")
+            self.execute("sudo -u pi -- kubectl apply -f /opt/klot-io/kubernetes/klot-io-app-crd.yaml")
 
         elif self.config["kubernetes"]["role"] == "worker":
+
+            if os.path.exists("/etc/kubernetes/bootstrap-kubelet.conf"):
+                print "already initialized worker"
+                return
 
             self.host("%s-%s-klot-io" % (self.config["kubernetes"]["name"], self.config["kubernetes"]["cluster"]))
 
@@ -258,6 +300,108 @@ class Daemon(object):
                 '--token=%s' % token,
                 '--discovery-token-unsafe-skip-ca-verification'
             ]))
+
+    def resources(self, obj):
+
+        resources = []
+
+        for manifest in obj["spec"]["manifests"]:
+
+            source = copy.deepcopy(obj["spec"]["source"])
+            source.update(manifest)
+
+            print "parsing %s" % source
+
+            if "url" in source:
+
+                url = source["url"]
+
+            elif "site" in source and source["site"] == "github.com":
+
+                if "repo" not in source:
+                    raise AppException("missing source.repo for %s" % source["site"])
+
+                repo = source["repo"]
+                version = source["version"] if "version" in source else "master"
+                path = source["path"] if "path" in source else "klot-io-app.yaml"
+
+                url = "https://raw.githubusercontent.com/%s/%s/%s" % (repo, version, path)
+
+            else:
+
+                raise AppException("cannot parse %s" % source)
+
+            print "fetching %s" % url
+
+            response = requests.get(url)
+
+            if response.status_code != 200:
+                raise AppException("%s error from %s: %s" % (response.status_code, url, response.text))
+
+            resources.extend(list(yaml.safe_load_all(response.text)))
+
+        resources.sort(key= lambda resource: RESOURCES[resource["kind"]] if resource["kind"] in RESOURCES else RESOURCES["*"])
+
+        return resources
+
+    def display(self, obj):
+
+        display = [obj["kind"]]
+
+        if "namespace" in obj["metadata"]:
+            display.append(obj["metadata"]["namespace"])
+
+        display.append(obj["metadata"]["name"])
+
+        return "/".join(display)
+
+    def apps(self):
+
+        for obj in [app.obj for app in pykube.App.objects(self.kube).filter()]:
+
+            try:
+
+                if "status" not in obj:
+
+                    print "fetching resources for %s" % self.display(obj)
+                    obj["resources"] = self.resources(obj)
+                    obj["status"] = "Ready"
+
+                elif obj["status"] == "Install":
+
+                    print "installing %s" % self.display(obj)
+                    for resource in obj["resources"]:
+                        print "creating %s" % self.display(resource)
+                        getattr(pykube, resource["kind"])(self.kube, resource).create()
+                    if "settings" in obj["spec"]:
+                        obj["settings"] = obj["spec"]["settings"]
+                    obj["status"] = "Installed"
+
+                elif obj["status"] == "Uninstall":
+
+                    print "unininstalling %s" % self.display(obj)
+                    for resource in reversed(obj["resources"]):
+                        print "deleting %s" % self.display(resource)
+                        getattr(pykube, resource["kind"])(self.kube, resource).delete()
+                    if "settings" in obj:
+                        del obj["settings"]
+                    obj["status"] = "Ready"
+
+            except Exception as exception:
+
+                obj["status"] = "Error"
+                obj["error"] = str(exception)
+                traceback.print_exc()
+
+            pykube.App(self.kube, obj).replace()
+
+    def clean(self):
+
+        past = time.time() - 60
+
+        for tmp_file in glob.glob("/tmp/tmp??????"):
+            if past > os.path.getmtime(tmp_file):
+                os.remove(tmp_file)
 
     def process(self):
 
@@ -278,6 +422,13 @@ class Daemon(object):
 
         if "kubernetes" in self.modified:
             self.kubernetes()
+
+        if not self.kube and os.path.exists("/home/pi/.kube/config"):
+            self.kube = pykube.HTTPClient(pykube.KubeConfig.from_file("/home/pi/.kube/config"))
+
+        if self.kube:
+            self.apps()
+            self.clean()
 
     def run(self):
 

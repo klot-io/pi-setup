@@ -4,5 +4,5 @@ netifaces==0.10.8
 flask==1.0.2
 flask_restful==0.3.7
 pyasn1==0.4.2
-pykube==0.15.0
+git+https://github.com/klot-io/pykube.git@fresh-start#egg=pykube
 coverage==4.5.1

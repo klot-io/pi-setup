@@ -14,15 +14,19 @@ local.create("version", f"klot-io-pi-{version}")
 local.directory("config")
 local.copy("config/account.yaml")
 local.copy("config/network.yaml")
-local.copy("config/kube-flannel.yml")
 
-local.copy("requirements.txt")
+local.directory("kubernetes")
+local.copy("kubernetes/kube-flannel.yml")
+local.copy("kubernetes/klot-io-app-crd.yaml")
+
+local.copy("requirements.txt", "requirements.txt")
 
 local.directory("lib")
 local.copy("lib/manage.py")
 local.copy("lib/config.py")
 
 local.directory("etc")
+local.copy("etc/nginx.conf")
 local.copy("etc/rpi.conf")
 
 local.copytree("www")

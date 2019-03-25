@@ -24,7 +24,11 @@ echo "install config files"
 sudo mkdir -p /opt/klot-io/config/
 sudo cp /boot/klot-io/config/account.yaml /opt/klot-io/config/
 sudo cp /boot/klot-io/config/network.yaml /opt/klot-io/config/
-sudo cp /boot/klot-io/config/kube-flannel.yml /opt/klot-io/config/
+
+echo "install kubernetes files"
+sudo mkdir -p /opt/klot-io/kubernetes/
+sudo cp /boot/klot-io/kubernetes/kube-flannel.yml /opt/klot-io/kubernetes/
+sudo cp /boot/klot-io/kubernetes/klot-io-app-crd.yaml /opt/klot-io/kubernetes/
 
 echo "installing klot-io api"
 sudo cp /boot/klot-io/lib/manage.py /opt/klot-io/lib/
@@ -33,6 +37,7 @@ sudo cp /boot/klot-io/service/klot-io-api.service /etc/systemd/system/
 
 echo "installing klot-io gui"
 sudo apt install -y nginx
+sudo cp /boot/klot-io/etc/nginx.conf /etc/nginx/
 sudo cp /boot/klot-io/etc/rpi.conf /etc/nginx/sites-available/default
 sudo cp -r /boot/klot-io/www /opt/klot-io/www
 

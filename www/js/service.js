@@ -30,7 +30,7 @@ DRApp.controller("Base",null,{
     },
     start: function() {
         this.stop();
-        this.timeout = window.setTimeout($.proxy(this.update,this), 5000);
+        this.timeout = window.setTimeout($.proxy(this.update,this), 10000);
     },
     update: function() {
         if (!$("#name").is(":focus")) {
@@ -77,17 +77,23 @@ DRApp.controller("Base",null,{
         } else if (DRApp.STATUSES[DRApp.status] < DRApp.STATUSES["NotReady"]) {
             this.application.go("status");
         } else if (DRApp.status == "NotReady") {
-            this.application.go("pod");
+            this.application.go("pods");
         } else if (DRApp.status == "Master") {
-            this.application.go("node");
+            this.application.go("nodes");
         } else if (DRApp.status == "Workers") {
-            this.application.go("app");
+            this.application.go("apps");
         } else {
             this.application.render(this.it);
         }
     },
     login: function() {
         this.application.render(this.it);
+    },
+    password_enter: function(event) {
+        if(e.keyCode === 13){
+            event.preventDefault();
+            this.password();
+        }
     },
     password: function() {
         DRApp.password = $("#password").val();
@@ -99,11 +105,11 @@ DRApp.controller("Base",null,{
         $.cookie('klot-io-password', DRApp.password);
         this.application.go("home");
     },
-    log: function() {
+    logs: function() {
         this.loading();
         this.update_status();
         this.it = {
-            lines: this.rest("GET","/api/log").lines
+            lines: this.rest("GET","/api/log/" + this.application.current.path.service).lines
         };
         this.application.render(this.it);
         this.start();
@@ -137,7 +143,6 @@ DRApp.controller("Base",null,{
             settings: this.rest("OPTIONS","/api/config", {config: this.config_input()}).settings
         };
         this.application.render(this.it);
-        this.start();
     },
     config_update: function() {
         this.loading();
@@ -177,11 +182,12 @@ DRApp.controller("Base",null,{
         this.application.render({});
         this.start();
     },
-    node: function() {
+    nodes: function() {
         this.loading();
         this.update_status();
         this.it = {
-            nodes: this.rest("GET","/api/node").nodes
+            nodes: this.rest("GET","/api/node").nodes,
+            labels: this.rest("GET","/api/label").labels
         }
         this.application.render(this.it);
         this.start();
@@ -196,21 +202,87 @@ DRApp.controller("Base",null,{
         this.rest("DELETE","/api/node", {node: node});
         this.application.go('node');
     },
-    pod: function() {
+    pods: function() {
         this.loading();
+        this.update_status();
         this.it = {
             pods: this.rest("GET","/api/pod").pods
         }
         this.application.render(this.it);
         this.start();
     },
-    app: function() {
+    apps: function() {
         this.loading();
+        this.update_status();
         this.it = {
-            app: []
+            apps: this.rest("GET","/api/app").apps
         }
         this.application.render(this.it);
         this.start();
+    },
+    preview_change: function() {
+        this.stop();
+        var from = $("input[name='from']:checked").val();
+        if (from == "url") {
+            $("#from_url").show();
+            $("#from_github").hide();
+        } else if (from == "github") {
+            $("#from_url").hide();
+            $("#from_github").show();
+        }
+    },
+    app_preview: function() {
+        var from = $("input[name='from']:checked").val();
+        var source = {};
+        if (from == "url") {
+            source['url'] = $("#url").val();
+        } else if (from == "github") {
+            source["site"] = "github.com";
+            source['repo']= $("#repo").val();
+            if ($("#version").val()) {
+                source["version"] = $("#version").val()
+            }
+            if ($("#path").val()) {
+                source["path"] = $("#path").val()
+            }
+        }
+        this.it.message = this.rest("POST","/api/app", {source: source}).message;
+        this.application.refresh();
+    },
+    app: function() {
+        this.loading();
+        this.update_status();
+        this.it = {
+            app: this.rest("GET","/api/app/"+ DRApp.current.path.app_name).app,
+            nodes: this.rest("GET","/api/node").nodes,
+            labels: this.rest("GET","/api/label?app=" + DRApp.current.path.app_name).labels
+        }
+        this.application.render(this.it);
+        this.start();
+    },
+    app_label(label_name, node_name) {
+            var label = {
+                app: this.it.app.name,
+                name: label_name,
+                node: node_name
+            }
+        if ($('#' + label_name + '-' + node_name).is(':checked')) {
+            label.value = $('#' + label_name +  '-' + node_name).val();
+            this.rest("POST","/api/label", {label: label});
+        } else {
+            this.rest("DELETE","/api/label", {label: label});
+        }
+        this.application.refresh();
+    },
+    app_install() {
+        this.rest("POST","/api/app/" + this.it.app.name);
+        this.application.refresh();
+    },
+    app_uninstall() {
+        if (confirm("Are you sure you want to uninstall " + this.it.app.name + "?")) {
+            this.rest("DELETE","/api/app/" + this.it.app.name);
+            this.application.refresh();
+        }
     }
 });
 
@@ -219,19 +291,21 @@ DRApp.partial("Footer",DRApp.load("footer"));
 
 DRApp.template("Home",DRApp.load("home"),null,DRApp.partials);
 DRApp.template("Login",DRApp.load("login"),null,DRApp.partials);
-DRApp.template("Log",DRApp.load("log"),null,DRApp.partials);
+DRApp.template("Logs",DRApp.load("logs"),null,DRApp.partials);
 DRApp.template("Config",DRApp.load("config"),null,DRApp.partials);
 DRApp.template("Status",DRApp.load("status"),null,DRApp.partials);
-DRApp.template("Pod",DRApp.load("pod"),null,DRApp.partials);
-DRApp.template("Node",DRApp.load("node"),null,DRApp.partials);
+DRApp.template("Pods",DRApp.load("pods"),null,DRApp.partials);
+DRApp.template("Nodes",DRApp.load("nodes"),null,DRApp.partials);
+DRApp.template("Apps",DRApp.load("apps"),null,DRApp.partials);
 DRApp.template("App",DRApp.load("app"),null,DRApp.partials);
 
 DRApp.route("home","/","Home","Base", "home")
 DRApp.route("login","/login","Login","Base", "login")
 DRApp.route("logout","/logout","Login","Base", "logout")
-DRApp.route("log","/log","Log","Base", "log", "stop")
+DRApp.route("logs","/log/{service}","Logs","Base", "logs", "stop")
 DRApp.route("config","/config","Config","Base","config", "stop");
 DRApp.route("status","/status","Status","Base","status", "stop");
-DRApp.route("pod","/pod","Pod","Base","pod", "stop");
-DRApp.route("node","/node","Node","Base","node", "stop");
-DRApp.route("app","/app","App","Base","app", "stop");
+DRApp.route("pods","/pod","Pods","Base","pods", "stop");
+DRApp.route("nodes","/node","Nodes","Base","nodes", "stop");
+DRApp.route("apps","/app","Apps","Base","apps", "stop");
+DRApp.route("app","/app/{app_name}","App","Base","app", "stop");
