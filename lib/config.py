@@ -13,6 +13,9 @@ import urlparse
 import requests
 import netifaces
 
+import avahi
+import dbus
+import encodings.idna
 
 class App(pykube.objects.APIObject):
 
@@ -58,6 +61,8 @@ class Daemon(object):
        self.modified = []
 
        self.kube = None
+       self.cname = None
+       self.hostname = None
 
     def execute(self, command):
 
@@ -126,6 +131,53 @@ class Daemon(object):
 
         return expected != actual
 
+    # Stolen from https://gist.github.com/gdamjan/3168336
+
+    TTL = 15
+    # Got these from /usr/include/avahi-common/defs.h
+    CLASS_IN = 0x01
+    TYPE_CNAME = 0x05
+
+    @staticmethod
+    def encode_cname(name):
+        return '.'.join(  encodings.idna.ToASCII(p) for p in name.split('.') if p )
+
+    @staticmethod
+    def encode_rdata(name):
+        def enc(part):
+            a =  encodings.idna.ToASCII(part)
+            return chr(len(a)), a
+        return ''.join( '%s%s' % enc(p) for p in name.split('.') if p ) + '\0'
+
+    def avahi(self):
+
+        self.execute("service avahi-daemon restart")
+
+        cnames = []
+
+        if self.cname is not None:
+            cnames.append(self.cname)
+
+        if cnames:
+
+            bus = dbus.SystemBus()
+            server = dbus.Interface(bus.get_object(avahi.DBUS_NAME, avahi.DBUS_PATH_SERVER), avahi.DBUS_INTERFACE_SERVER)
+            group = dbus.Interface(bus.get_object(avahi.DBUS_NAME, server.EntryGroupNew()), avahi.DBUS_INTERFACE_ENTRY_GROUP)
+
+            for cname in cnames:
+                group.AddRecord(
+                    avahi.IF_UNSPEC,
+                    avahi.PROTO_UNSPEC,
+                    dbus.UInt32(0),
+                    self.encode_cname(cname), 
+                    self.CLASS_IN, 
+                    self.TYPE_CNAME, 
+                    self.TTL, 
+                    avahi.string_to_byte_array(self.encode_rdata(server.GetHostNameFqdn()))
+                )
+
+            group.Commit()
+
     def account(self):
 
         self.execute("echo 'pi:%s' | chpasswd" % self.config["account"]["password"])
@@ -152,7 +204,7 @@ class Daemon(object):
         if self.differs(expected, actual):
 
             os.system("sed -i 's/allow-interfaces=.*/allow-interfaces=%s/' /etc/avahi/avahi-daemon.conf" % expected)
-            self.execute("service avahi-daemon restart")
+            self.avahi()
 
         if expected == "eth0":
 
@@ -192,7 +244,12 @@ class Daemon(object):
 
         return interfaces
 
-    def host(self, expected):
+    def host(self, *args):
+
+        self.hostname = '%s-klot-io' % "-".join(args)
+        self.cname = '%s.klot-io.local' % ".".join(args)
+
+        expected = self.hostname
 
         avahi = False
 
@@ -202,7 +259,7 @@ class Daemon(object):
         if self.differs(expected, actual):
 
             with open("/etc/hostname", "w") as hostname_file:
-                hostname = hostname_file.write(expected)
+                hostname_file.write(expected)
 
             self.execute("hostnamectl set-hostname %s" % expected)
 
@@ -215,8 +272,13 @@ class Daemon(object):
             self.execute("sed -i 's/127.0.1.1\t.*/127.0.1.1\t%s/' /etc/hosts" % expected)
             avahi = True
 
+        try:
+            socket.gethostbyname(self.cname)
+        except socket.gaierror:
+            avahi = True
+
         if avahi:
-            self.execute("service avahi-daemon restart")
+            self.avahi()
 
     def kubernetes(self):
 
@@ -247,12 +309,11 @@ class Daemon(object):
 
         if self.config["kubernetes"]["role"] == "master":
 
+            self.host(self.config["kubernetes"]["cluster"])
+
             if os.path.exists("/home/pi/.kube/config"):
                 print "already initialized master"
                 return
-
-            host = '%s-klot-io' % self.config["kubernetes"]["cluster"]
-            self.host(host)
 
             self.execute(" ".join([
                 'kubeadm',
@@ -271,12 +332,12 @@ class Daemon(object):
                 config = yaml.load(config_file)
 
             config["clusters"][0]["cluster"]["server"] = 'https://%s:6443' % ip
-            config["clusters"][0]["name"] = host
-            config["users"][0]["name"] = host
-            config["contexts"][0]["name"] = host
-            config["contexts"][0]["context"]["cluster"] = host
-            config["contexts"][0]["context"]["user"] = host
-            config["current-context"] = host
+            config["clusters"][0]["name"] = self.hostname
+            config["users"][0]["name"] = self.hostname
+            config["contexts"][0]["name"] = self.hostname
+            config["contexts"][0]["context"]["cluster"] = self.hostname
+            config["contexts"][0]["context"]["user"] = self.hostname
+            config["current-context"] = self.hostname
 
             with open("/home/pi/.kube/config", "w") as config_file:
                 yaml.safe_dump(config, config_file, default_flow_style=False)
@@ -287,11 +348,11 @@ class Daemon(object):
 
         elif self.config["kubernetes"]["role"] == "worker":
 
+            self.host(self.config["kubernetes"]["name"], self.config["kubernetes"]["cluster"])
+
             if os.path.exists("/etc/kubernetes/bootstrap-kubelet.conf"):
                 print "already initialized worker"
                 return
-
-            self.host("%s-%s-klot-io" % (self.config["kubernetes"]["name"], self.config["kubernetes"]["cluster"]))
 
             self.execute(" ".join([
                 'kubeadm',

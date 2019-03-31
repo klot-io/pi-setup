@@ -153,7 +153,7 @@ DRApp.controller("Base",null,{
             this.it.message = "config saved";
             if (window.location.hostname.split('.')[1] == "local") {
                 if (config["kubernetes"]["role"] == "master" || config["kubernetes"]["role"] == "worker") {
-                    this.switch = "http://" + config.kubernetes.cluster + "-klot-io.local";
+                    this.switch = "http://" + config.kubernetes.cluster + ".klot-io.local";
                 } else {
                     this.switch = "http://klot-io.local";
                 }
