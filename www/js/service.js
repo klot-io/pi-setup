@@ -117,21 +117,21 @@ DRApp.controller("Base",null,{
     config: function() {
         this.update_status();
         this.it = {
-            settings: this.rest("OPTIONS","/api/config", {config: this.rest("GET","/api/config").config}).settings
+            fields: this.rest("OPTIONS","/api/config", {config: this.rest("GET","/api/config").config}).fields
         };
         this.application.render(this.it);
     },
     config_input: function() {
         var config = {};
-        for (var setting_index = 0; setting_index < this.it.settings.length; setting_index++) {
-            var setting = this.it.settings[setting_index];
-            config[setting.name] = {}
-            for (var field_index = 0; field_index < setting.fields.length; field_index++) {
-                var field = setting.fields[field_index];
-                if (field.options) {
-                    config[setting.name][field.name] = $("input[name='" + setting.name + '-' + field.name + "']:checked").val()
+        for (var field_index = 0; field_index < this.it.fields.length; field_index++) {
+            var field = this.it.fields[field_index];
+            config[field.name] = {}
+            for (var subfield_index = 0; subfield_index < field.fields.length; subfield_index++) {
+                var subfield = field.fields[subfield_index];
+                if (subfield.options) {
+                    config[field.name][subfield.name] = $("input[name='" + field.name + '-' + subfield.name + "']:checked").val()
                 } else {
-                    config[setting.name][field.name] = $("#" + setting.name + '-' + field.name).val()
+                    config[field.name][subfield.name] = $("#" + field.name + '-' + subfield.name).val()
                 }
             }
         }
@@ -140,7 +140,7 @@ DRApp.controller("Base",null,{
     config_change: function() {
         this.loading();
         this.it = {
-            settings: this.rest("OPTIONS","/api/config", {config: this.config_input()}).settings
+            fields: this.rest("OPTIONS","/api/config", {config: this.config_input()}).fields
         };
         this.application.render(this.it);
     },

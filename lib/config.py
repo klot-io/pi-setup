@@ -71,7 +71,7 @@ class Daemon(object):
         self.execute("rm /boot/klot-io/reset")
 
         with open("/opt/klot-io/config/account.yaml", "w") as yaml_file:
-            yaml.safe_dump({"password": "kloudofthings"}, yaml_file, default_flow_style=False)
+            yaml.safe_dump({"password": "kloudofthings", "ssh": "disabled"}, yaml_file, default_flow_style=False)
 
         with open("/opt/klot-io/config/network.yaml", "w") as yaml_file:
             yaml.safe_dump({"interface": "eth0"}, yaml_file, default_flow_style=False)
@@ -83,11 +83,11 @@ class Daemon(object):
         
         print "restarting"
 
-        self.execute("cp /boot/klot-io/bin/daemon.py /opt/klot-io/bin/daemon.py")
-        self.execute("chown 1000:1000 /opt/klot-io/bin/daemon.py")
-        self.execute("chmod a+x /opt/klot-io/bin/daemon.py")
+        self.execute("cp /boot/klot-io/lib/config.py /opt/klot-io/lib/config.py")
+        self.execute("chown 1000:1000 /opt/klot-io/lib/config.py")
+        self.execute("chmod a+x /opt/klot-io/lib/config.py")
 
-        self.execute("rm /boot/klot-io/bin/daemon.py")
+        self.execute("rm /boot/klot-io/lib/config.py")
 
         self.execute("systemctl restart klot-io-daemon")
 
@@ -408,7 +408,7 @@ class Daemon(object):
         if os.path.exists("/boot/klot-io/reset"):
             self.reset()
 
-        if os.path.exists("/boot/klot-io/bin/daemon.py"):
+        if os.path.exists("/boot/klot-io/lib/config.py"):
             self.restart()
 
         self.reload()

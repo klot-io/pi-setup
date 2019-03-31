@@ -1,6 +1,7 @@
-PyYAML==3.13
+PyYAML==5.1
 flask==1.0.2
 flask_restful==0.3.7
+git+https://github.com/gaf3/opengui.git@5cebef7418619c1b4353c281c593e43bc2c0663c#egg=opengui
 requests==2.21.0
 pyasn1==0.4.2
 git+https://github.com/klot-io/pykube.git@fresh-start#egg=pykube

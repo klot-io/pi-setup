@@ -10,6 +10,7 @@ import functools
 
 import flask
 import flask_restful
+import opengui
 
 import pykube
 
@@ -115,14 +116,12 @@ class Log(flask_restful.Resource):
 class Config(flask_restful.Resource):
 
     name = "config"
+    sections = ["account", "network", "kubernetes"]
 
-    @staticmethod
-    def settings(values=None):
+    @classmethod
+    def fields(cls, values):
 
-        if values == None:
-            values = {}
-
-        settings = [
+        fields = opengui.Fields(values, cls.load(), [
             {
                 "name": "account",
                 "fields": [
@@ -170,19 +169,13 @@ class Config(flask_restful.Resource):
                     }
                 ]
             }
-        ]
+        ])
 
-        if os.path.exists("/opt/klot-io/config/kubernetes.yaml"):
+        if fields["kubernetes"]["role"].original is not None and fields["kubernetes"]["role"].original != "reset":
+            fields["kubernetes"]["role"].options = [fields["kubernetes"]["role"].original, "reset"]
 
-            with open("/opt/klot-io/config/kubernetes.yaml", "r") as config_file:
-                role = yaml.load(config_file)["role"]
-            
-            if role != "reset":
-                settings[2]["fields"][0]["options"] = [role, "reset"]
-
-        if "network" in values and "interface" in values["network"] and \
-           values["network"]["interface"] == "wlan0":
-            settings[1]["fields"].extend([
+        if fields["network"]["interface"].value == "wlan0":
+            fields["network"].extend([
                 {
                     "name": "country",
                     "default": "US"
@@ -197,83 +190,31 @@ class Config(flask_restful.Resource):
                 }
             ])
 
-        if "kubernetes" in values and "role" in values["kubernetes"]: 
-        
-            if values["kubernetes"]["role"] != "reset":
-                settings[2]["fields"].extend([
-                    {
-                        "name": "cluster"
-                    }
-                ])
+        if fields["kubernetes"]["role"].value and fields["kubernetes"]["role"].value != "reset":
+            fields["kubernetes"].append({
+                "name": "cluster"
+            })
 
-            if values["kubernetes"]["role"] == "worker":
-                settings[2]["fields"].extend([
-                    {
-                        "name": "name"
-                    }
-                ])
+        if fields["kubernetes"]["role"].value == "worker":
+            fields["kubernetes"].append({
+                "name": "name"
+            })
 
-        for setting in settings:
-            for field in setting["fields"]:
-                if setting["name"] in values and field["name"] in values[setting["name"]]:
-                    field["value"] = values[setting["name"]][field["name"]];
-                elif "default" in field:
-                    field["value"] = field["default"]
-
-        return settings
-
-    @staticmethod
-    def validate(settings, values):
-
-        errors = []
-
-        for setting in settings:
-
-            for field in values[setting["name"]]:
-                if field not in [field["name"] for field in setting["fields"]]:
-                    errors.append("unknown field '%s.%s'" % (setting["name"], field))
-
-            for field in setting["fields"]:
-
-                if (
-                    field["name"] not in values[setting["name"]] or 
-                    str(values[setting["name"]][field["name"]]) == ""
-                ) and (
-                    "optional" not in field or not field["optional"]
-                ):
-                    errors.append("missing field '%s.%s'" % (setting["name"], field["name"]))
-
-                if (
-                    "options" in field and field["name"] in values[setting["name"]] and
-                    values[setting["name"]][field["name"]] not in field["options"]
-                ):
-                    errors.append("invalid value '%s' for field '%s.%s'" % (
-                        values[setting["name"]][field["name"]], setting["name"], field["name"]
-                    ))
-
-            if (
-                setting["name"] == "kubernetes" and 
-                "role" in values[setting["name"]] and 
-                values[setting["name"]]["role"] == "worker" and
-                "name" not in values[setting["name"]]
-            ):
-                errors.append("must specify a kuberentes worker name")
-
-        return errors
+        return fields
 
     @classmethod
     def load(cls):
 
-        loaded = {}
+        originals = {}
 
-        for setting in cls.settings():
-            if os.path.exists("/opt/klot-io/config/%s.yaml" % setting["name"]):
-                with open("/opt/klot-io/config/%s.yaml" % setting["name"], "r") as config_file:
-                    loaded[setting["name"]] = yaml.load(config_file)
+        for section in cls.sections:
+            if os.path.exists("/opt/klot-io/config/%s.yaml" % section):
+                with open("/opt/klot-io/config/%s.yaml" % section, "r") as config_file:
+                    originals[section] = yaml.load(config_file)
             else:
-                loaded[setting["name"]] = {}
+                originals[section] = {}
 
-        return loaded
+        return originals
 
     @require_auth
     def options(self):
@@ -281,14 +222,12 @@ class Config(flask_restful.Resource):
         if self.name not in flask.request.json:
             return {"error": "missing %s" % self.name}
 
-        values = flask.request.json[self.name]
-        settings = self.settings(values)
-        errors = self.validate(settings, values)
+        fields = self.fields(flask.request.json[self.name])
 
-        if errors:
-            return {"settings": settings, "errors": errors}
+        if not fields.validate():
+            return {"fields": fields.to_list(), "errors": fields.errors}
         else:
-            return {"settings": settings}
+            return {"fields": fields.to_list()}
 
     @require_auth
     def post(self):
@@ -296,16 +235,14 @@ class Config(flask_restful.Resource):
         if self.name not in flask.request.json:
             return {"error": "missing %s" % self.name}, 400
 
-        values = flask.request.json[self.name]
-        settings = self.settings(values)
-        errors = self.validate(self.settings(values), values)
+        fields = self.fields(flask.request.json[self.name])
 
-        if errors:
-            return {"errors": errors}, 400
+        if not fields.validate():
+            return {"fields": fields.to_list(), "errors": fields.errors}, 400
 
-        for setting in settings:
-            with open("/opt/klot-io/config/%s.yaml" % setting["name"], "w") as config_file:
-                yaml.safe_dump(values[setting["name"]], config_file, default_flow_style=False)
+        for section in self.sections:
+            with open("/opt/klot-io/config/%s.yaml" % section, "w") as config_file:
+                yaml.safe_dump(fields[section].values, config_file, default_flow_style=False)
 
         return {self.name: flask.request.json[self.name]}, 202
 

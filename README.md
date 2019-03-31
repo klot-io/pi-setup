@@ -7,20 +7,6 @@ WARNING:  Only do this at home on a secure network. This is by no means producti
 
 DANGER:  Always be careful downloading and installing other people's code. 
 
-# What the Hell is This?
-
-Ok, awhile back I took Kubernetes threw it on Raspberry Pi's and created multi-microservice App that yells at my kids to get ready in the morning (in an Australian accent).
-
-Originally, I did this as a joke because I was bored, but something amazing happened: it worked.  My young children are ready every morning in 10-15 with zero effort from my wife and I. 
-
-Beyond that success, I realzied I had created a platform.  When I say I installed Kuberenetes and the App runs on that, I'm not kidding.  I have Pods interacting with the Pi's GPIO; DaemonSets deploying to Node that I ssimply label that they have a Button; those DaemonSets pushing events to Redis channels; Daemons reacting to those events, saying Chores are done, and on and on.
-
-What's really cool is the kids like to use this (called Nandy), creating their own chores or just chaning the order, etc. Since my kids and are having a blast with all this, I thought I'd share what I'd done. 
-
-So what this does is allow you to easily grab a handful of Raspberry Pi's, install Kuberenetes on them, and then install Apps from repos I created in GitHub. Right now, I just have the Redis service, but I'm looking to add more.
-
-I've also made it extensible for anyone to add more. If you can put a Kubernetes resouces at a URL and your Docker images are publicly accessible, anyone can install your App on ther clsuter. 
-
 # Getting Started
 
 Download image from <URL> and burn onto an SD card.
@@ -77,23 +63,7 @@ Put the cards in the Pi's and boot up.  After a few minutes, go to http://<clust
 
 Once you have a master node and a few workers, head over to Apps.
 
-## preview
 
-Here you can preview Apps by either providing a URL or GitHub repo information.
-
-Once loaded, you can review the manifests and Install them by clicking the App in the listing. 
-
-### labels
-
-Some Apps require that you label nodes to install service on speciallly enabled nodes os just consistently. 
-
-The App's page allows you to set these labels easily with checkboxes.
-
-## install
-
-You can also install the App from this page
-
-Once installed, you can see what settings are available to use by the App.
 
 # Kubectl
 

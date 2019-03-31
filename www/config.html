@@ -19,27 +19,27 @@
     </div>
     {{?}}
     <form class="uk-form uk-form-horizontal">
-        {{~it.settings :setting}}
+        {{~it.fields :field}}
         <hr/>
-        <h3>{{=setting.name}}</h3>
-        {{~setting.fields :field}}
+        <h3>{{=field.name}}</h3>
+        {{~field.fields :subfield}}
         <div class="uk-form-row">
-            <label class="uk-form-label" for="{{=field.name}}">{{=field.name}}:</label>
-            {{?field.options}}
-            {{~field.options :option}}
+            <label class="uk-form-label" for="{{=subfield.name}}">{{=subfield.name}}:</label>
+            {{?subfield.options}}
+            {{~subfield.options :option}}
             <input 
-                type="radio" name="{{!setting.name}}-{{!field.name}}" value="{{!option}}"
-                {{?field.value == option}}checked{{?}}
-                {{?field.trigger}}OnClick="DRApp.current.controller.config_change();"{{?}} 
+                type="radio" name="{{!field.name}}-{{!subfield.name}}" value="{{!option}}"
+                {{?(subfield.value || subfield.default) == option}}checked{{?}}
+                {{?subfield.trigger}}OnClick="DRApp.current.controller.config_change();"{{?}} 
             /> 
-            {{= field.labels ? field.labels[option] : option}}
+            {{= subfield.labels ? subfield.labels[option] : option}}
             {{~}}
             {{??}}
             <input 
-                id="{{!setting.name}}-{{!field.name}}" 
-                placeholder="{{!field.label || field.name}}" 
-                value="{{!field.value || ''}}"
-                {{?field.trigger}}OnInput="DRApp.current.controller.config_change();"{{?}} 
+                id="{{!field.name}}-{{!subfield.name}}" 
+                placeholder="{{!subfield.label || subfield.name}}" 
+                value="{{!subfield.value || subfield.default || ''}}"
+                {{?subfield.trigger}}OnInput="DRApp.current.controller.config_change();"{{?}} 
                 type="text"
             /><br/>
             {{?}}
