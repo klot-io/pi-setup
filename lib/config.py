@@ -37,7 +37,6 @@ network={
 }
 """
 
-
 RESOURCES = {
     "Namespace": 1,
     "ServiceAccont": 2,
@@ -47,6 +46,19 @@ RESOURCES = {
     "RoleBinding": 6,
     "*": 7
 }
+
+SERVER = """server {
+
+    listen       %s;
+    server_name  %s;
+
+    location / {
+        proxy_pass %s://%s:%s/;
+    }
+
+}
+
+"""
 
 
 class AppException(Exception):
@@ -61,8 +73,8 @@ class Daemon(object):
        self.modified = []
 
        self.kube = None
-       self.cname = None
-       self.hostname = None
+       self.node = None
+       self.cnames = set()
 
     def execute(self, command):
 
@@ -151,20 +163,15 @@ class Daemon(object):
 
     def avahi(self):
 
-        self.execute("service avahi-daemon restart")
+        self.execute("systemctl restart avahi-daemon")
 
-        cnames = []
-
-        if self.cname is not None:
-            cnames.append(self.cname)
-
-        if cnames:
+        if self.cnames:
 
             bus = dbus.SystemBus()
             server = dbus.Interface(bus.get_object(avahi.DBUS_NAME, avahi.DBUS_PATH_SERVER), avahi.DBUS_INTERFACE_SERVER)
             group = dbus.Interface(bus.get_object(avahi.DBUS_NAME, server.EntryGroupNew()), avahi.DBUS_INTERFACE_ENTRY_GROUP)
 
-            for cname in cnames:
+            for cname in self.cnames:
                 group.AddRecord(
                     avahi.IF_UNSPEC,
                     avahi.PROTO_UNSPEC,
@@ -246,10 +253,9 @@ class Daemon(object):
 
     def host(self, *args):
 
-        self.hostname = '%s-klot-io' % "-".join(args)
-        self.cname = '%s.klot-io.local' % ".".join(args)
+        self.node = '%s-klot-io' % "-".join(args)
 
-        expected = self.hostname
+        expected = self.node
 
         avahi = False
 
@@ -272,11 +278,6 @@ class Daemon(object):
             self.execute("sed -i 's/127.0.1.1\t.*/127.0.1.1\t%s/' /etc/hosts" % expected)
             avahi = True
 
-        try:
-            socket.gethostbyname(self.cname)
-        except socket.gaierror:
-            avahi = True
-
         if avahi:
             self.avahi()
 
@@ -285,8 +286,8 @@ class Daemon(object):
         if self.config["kubernetes"]["role"] == "reset":
             self.host("klot-io")
             self.execute("kubeadm reset")
-            self.execute("rm /opt/klot-io/config/kubernetes.yaml")
-            self.execute("rm /home/pi/.kube/config")
+            self.execute("rm -f /opt/klot-io/config/kubernetes.yaml")
+            self.execute("rm -f /home/pi/.kube/config")
             self.execute("reboot")
             return
 
@@ -325,26 +326,16 @@ class Daemon(object):
                 '--kubernetes-version=v1.10.2'
             ]))
 
-            self.execute("mkdir -p /home/pi/.kube")
-            self.execute("rm -f /home/pi/.kube/config")
-            
             with open("/etc/kubernetes/admin.conf", "r") as config_file:
                 config = yaml.load(config_file)
 
             config["clusters"][0]["cluster"]["server"] = 'https://%s:6443' % ip
-            config["clusters"][0]["name"] = self.hostname
-            config["users"][0]["name"] = self.hostname
-            config["contexts"][0]["name"] = self.hostname
-            config["contexts"][0]["context"]["cluster"] = self.hostname
-            config["contexts"][0]["context"]["user"] = self.hostname
-            config["current-context"] = self.hostname
-
-            with open("/home/pi/.kube/config", "w") as config_file:
-                yaml.safe_dump(config, config_file, default_flow_style=False)
-
-            self.execute("chown pi:pi /home/pi/.kube/config")
-            self.execute("sudo -u pi -- kubectl apply -f /opt/klot-io/kubernetes/kube-flannel.yml")
-            self.execute("sudo -u pi -- kubectl apply -f /opt/klot-io/kubernetes/klot-io-app-crd.yaml")
+            config["clusters"][0]["name"] = self.node
+            config["users"][0]["name"] = self.node
+            config["contexts"][0]["name"] = self.node
+            config["contexts"][0]["context"]["cluster"] = self.node
+            config["contexts"][0]["context"]["user"] = self.node
+            config["current-context"] = self.node
 
         elif self.config["kubernetes"]["role"] == "worker":
 
@@ -361,6 +352,21 @@ class Daemon(object):
                 '--token=%s' % token,
                 '--discovery-token-unsafe-skip-ca-verification'
             ]))
+
+            config = requests.get(
+                'http://%s-klot-io.local/api/kubectl' % self.config["kubernetes"]["cluster"],
+                headers={"klot-io-password": self.config["account"]['password']},
+            ).json()["kubectl"]
+
+        self.execute("mkdir -p /home/pi/.kube")
+        self.execute("rm -f /home/pi/.kube/config")
+        
+        with open("/home/pi/.kube/config", "w") as config_file:
+            yaml.safe_dump(config, config_file, default_flow_style=False)
+
+        self.execute("chown pi:pi /home/pi/.kube/config")
+        self.execute("sudo -u pi -- kubectl apply -f /opt/klot-io/kubernetes/kube-flannel.yml")
+        self.execute("sudo -u pi -- kubectl apply -f /opt/klot-io/kubernetes/klot-io-app-crd.yaml")
 
     def resources(self, obj):
 
@@ -456,6 +462,104 @@ class Daemon(object):
 
             pykube.App(self.kube, obj).replace()
 
+    def nginx(self, expected):
+
+        actual = {}
+
+        for nginx_path in glob.glob("/etc/nginx/conf.d/*.conf"):
+
+            host = nginx_path.split("/")[-1].split(".conf")[0]
+            actual[host] = {"servers": []}
+
+            with open(nginx_path, "r") as nginx_file:
+                for nginx_line in nginx_file:
+                    if "proxy_pass" in nginx_line:
+                        actual[host]["servers"].append({
+                            "protocol": nginx_line.split(":")[0].split(" ")[-1],
+                            "port": int(nginx_line.split(":")[-1].split("/")[0])
+                        })
+                        actual[host]["ip"] = nginx_line.split("/")[2].split(":")[0]
+
+        if expected != actual:
+        
+            self.differs(expected, actual)
+            self.execute("rm -f /etc/nginx/conf.d/*.conf")
+
+            for host in expected:
+                with open("/etc/nginx/conf.d/%s.conf" % host, "w") as nginx_file:
+                    for server in expected[host]["servers"]:
+                        nginx_file.write(SERVER % (server["port"], host, server["protocol"], expected[host]["ip"], server["port"]))
+
+            self.execute("systemctl restart nginx")
+
+    def services(self):
+
+        nginx = {}
+        cnames = set()
+
+        for service in [service.obj for service in pykube.Service.objects(self.kube).filter(namespace=pykube.all)]:
+
+            if (
+                "type" not in service["spec"] or service["spec"]["type"] != "LoadBalancer" or 
+                "ports" not in service["spec"] or "selector" not in service["spec"] or 
+                "namespace" not in service["metadata"]
+            ):
+                continue
+
+            servers = []
+
+            for port in service["spec"]["ports"]:
+
+                if "name" not in port:
+                    continue
+
+                if port["name"].lower().startswith("https"):
+                    servers.append({
+                        "protocol": "https",
+                        "port": port["port"]
+                    })
+                elif port["name"].lower().startswith("http"):
+                    servers.append({
+                        "protocol": "http",
+                        "port": port["port"]
+                    })
+
+            if not servers:
+                continue
+
+            node_ips = {}
+
+            for pod in [pod.obj for pod in pykube.Pod.objects(self.kube).filter(
+                namespace=service["metadata"]["namespace"], 
+                selector=service["spec"]["selector"]
+            )]:
+                if "nodeName" in pod["spec"] and "podIP" in pod["status"]:
+                    node_ips[pod["spec"]["nodeName"]] = pod["status"]["podIP"]
+
+            if not node_ips or sorted(node_ips.keys())[0] != self.node:
+                continue
+
+            ip = node_ips[self.node]
+
+            host = ("%s.%s.%s-klot-io.local" % (
+                service["metadata"]["name"],
+                service["metadata"]["namespace"],
+                self.config["kubernetes"]["cluster"]
+            ))
+
+            cnames.add(host)
+            nginx[host] = {
+                "ip": ip,
+                "servers": servers
+            }
+
+        if cnames != self.cnames:
+            self.differs(cnames, self.cnames)
+            self.cnames = cnames
+            self.avahi()
+
+        self.nginx(nginx)
+
     def clean(self):
 
         past = time.time() - 60
@@ -488,7 +592,11 @@ class Daemon(object):
             self.kube = pykube.HTTPClient(pykube.KubeConfig.from_file("/home/pi/.kube/config"))
 
         if self.kube:
-            self.apps()
+
+            if self.config["kubernetes"]["role"] == "master":
+                self.apps()
+
+            self.services()
             self.clean()
 
     def run(self):
