@@ -62,7 +62,7 @@ def require_auth(endpoint):
     def wrap(*args, **kwargs):
 
         with open("/opt/klot-io/config/account.yaml", "r") as config_file:
-            password = yaml.load(config_file)["password"]
+            password = yaml.safe_load(config_file)["password"]
 
         if "klot-io-password" not in flask.request.headers:
             return {"error": "missing password"}, 400
@@ -210,7 +210,7 @@ class Config(flask_restful.Resource):
         for section in cls.sections:
             if os.path.exists("/opt/klot-io/config/%s.yaml" % section):
                 with open("/opt/klot-io/config/%s.yaml" % section, "r") as config_file:
-                    originals[section] = yaml.load(config_file)
+                    originals[section] = yaml.safe_load(config_file)
             else:
                 originals[section] = {}
 
@@ -263,7 +263,7 @@ class Kubectl(flask_restful.Resource):
 
         if os.path.exists("/home/pi/.kube/config"):
             with open("/home/pi/.kube/config", "r") as config_file:
-                loaded = yaml.load(config_file)
+                loaded = yaml.safe_load(config_file)
 
         return loaded
 
@@ -433,13 +433,9 @@ class Node(flask_restful.Resource):
 
         try:
 
-            pykube.Node.objects(kube()).filter(
-                field_selector={"metadata.name": flask.request.json[self.name]}
-            ).get().delete()
-
             config = Config.load()
 
-            config["kubernetes"]["role"] = "reset"
+            config["kubernetes"] = {"role": "reset"}
 
             response = requests.post(
                 "http://%s.local/api/config" % flask.request.json[self.name],

@@ -131,7 +131,7 @@ class Daemon(object):
             if config not in self.mtimes or self.mtimes[config] != mtime:
 
                 with open(path, "r") as yaml_file:
-                    self.config[config] = yaml.load(yaml_file)
+                    self.config[config] = yaml.safe_load(yaml_file)
 
                 self.mtimes[config] = mtime
                 self.modified.append(config)
@@ -251,11 +251,9 @@ class Daemon(object):
 
         return interfaces
 
-    def host(self, *args):
+    def host(self, expected):
 
-        self.node = '%s-klot-io' % "-".join(args)
-
-        expected = self.node
+        self.node = expected
 
         avahi = False
 
@@ -284,13 +282,22 @@ class Daemon(object):
     def kubernetes(self):
 
         if self.config["kubernetes"]["role"] == "reset":
+
+            if not os.path.exists("/home/pi/.kube/config"):
+                print "already reset kubernetes"
+                return
+
+            try:
+                pykube.Node.objects(self.kube).filter().get(name=self.node).delete()
+            except pykube.ObjectDoesNotExist:
+                pass
+
             self.host("klot-io")
-            self.execute("kubeadm reset")
             self.execute("rm -f /opt/klot-io/config/kubernetes.yaml")
             self.execute("rm -f /home/pi/.kube/config")
+            self.execute("kubeadm reset")
             self.execute("reboot")
-            return
-
+ 
         attempts = 20
 
         while attempts:
@@ -310,7 +317,7 @@ class Daemon(object):
 
         if self.config["kubernetes"]["role"] == "master":
 
-            self.host(self.config["kubernetes"]["cluster"])
+            self.host("%s-klot-io" % self.config["kubernetes"]["cluster"])
 
             if os.path.exists("/home/pi/.kube/config"):
                 print "already initialized master"
@@ -327,7 +334,7 @@ class Daemon(object):
             ]))
 
             with open("/etc/kubernetes/admin.conf", "r") as config_file:
-                config = yaml.load(config_file)
+                config = yaml.safe_load(config_file)
 
             config["clusters"][0]["cluster"]["server"] = 'https://%s:6443' % ip
             config["clusters"][0]["name"] = self.node
@@ -339,7 +346,7 @@ class Daemon(object):
 
         elif self.config["kubernetes"]["role"] == "worker":
 
-            self.host(self.config["kubernetes"]["name"], self.config["kubernetes"]["cluster"])
+            self.host("%s-%s-klot-io" % (self.config["kubernetes"]["name"], self.config["kubernetes"]["cluster"]))
 
             if os.path.exists("/etc/kubernetes/bootstrap-kubelet.conf"):
                 print "already initialized worker"
@@ -365,8 +372,10 @@ class Daemon(object):
             yaml.safe_dump(config, config_file, default_flow_style=False)
 
         self.execute("chown pi:pi /home/pi/.kube/config")
-        self.execute("sudo -u pi -- kubectl apply -f /opt/klot-io/kubernetes/kube-flannel.yml")
-        self.execute("sudo -u pi -- kubectl apply -f /opt/klot-io/kubernetes/klot-io-app-crd.yaml")
+
+        if self.config["kubernetes"]["role"] == "master":
+            self.execute("sudo -u pi -- kubectl apply -f /opt/klot-io/kubernetes/kube-flannel.yml")
+            self.execute("sudo -u pi -- kubectl apply -f /opt/klot-io/kubernetes/klot-io-app-crd.yaml")
 
     def resources(self, obj):
 
