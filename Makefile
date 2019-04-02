@@ -10,12 +10,12 @@ VOLUMES=-v ${PWD}/boot_requirements.txt:/opt/klot-io/requirements.txt \
         -v ${PWD}/kubernetes/:/opt/klot-io/kubernetes/ \
         -v ${PWD}/service/:/opt/klot-io/service/ \
         -v ${PWD}/images/:/opt/klot-io/images/ \
-		-v ${PWD}/secret/:/opt/klot-io/secret/
+		-v ${PWD}/clusters/:/opt/klot-io/clusters/
 PORT=8083
 KLOTIO_HOST?=klot-io.local
 
 
-.PHONY: build shell boot api daemon gui export shrink config clean kubectl
+.PHONY: build shell boot cluster update export shrink config clean kubectl
 
 cross:
 	docker run --rm --privileged multiarch/qemu-user-static:register --reset
@@ -29,17 +29,11 @@ shell:
 boot:
 	docker run --privileged=true -it --rm -v /Volumes/boot/:/opt/klot-io/boot/ $(VOLUMES) $(ACCOUNT)/$(IMAGE)-setup:$(VERSION) sh -c "bin/boot.py $(VERSION)"
 
-api:
-	scp lib/manage.py pi@$(KLOTIO_HOST):/opt/klot-io/lib/
-	ssh pi@$(KLOTIO_HOST) "sudo systemctl restart klot-io-api"
+cluster:
+	docker run -it --network=host $(VARIABLES) $(VOLUMES) $(ACCOUNT)/$(IMAGE)-setup:$(VERSION) sh -c "bin/cluster.py"
 
-daemon:
-	scp lib/config.py pi@$(KLOTIO_HOST):/opt/klot-io/lib/
-	ssh pi@$(KLOTIO_HOST) "sudo systemctl restart klot-io-daemon"
-
-gui:
-	scp -r www pi@$(KLOTIO_HOST):/opt/klot-io/
-	ssh pi@$(KLOTIO_HOST) "sudo systemctl reload nginx"
+update:
+	docker run -it --network=host $(VARIABLES) $(VOLUMES) $(ACCOUNT)/$(IMAGE)-setup:$(VERSION) sh -c "bin/update.py"
 
 export:
 	bin/export.sh $(VERSION)
@@ -58,7 +52,7 @@ clean:
 
 kubectl:
 ifeq (,$(wildcard /usr/local/bin/kubectl))
-	curl -LO https://storage.googleapis.com/kubernetes-release/release/$(KUBECTL_VERSION)/bin/darwin/amd64/kubectl
+	curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.10.2/bin/darwin/amd64/kubectl
 	chmod +x ./kubectl
 	sudo mv ./kubectl /usr/local/bin/kubectl
 endif
@@ -67,3 +61,4 @@ endif
 	[ -f ~/.kube/config ] && cp ~/.kube/config secret/kubectl || [ ! -f ~/.kube/config ]
 	docker run -it $(VARIABLES) $(VOLUMES) $(ACCOUNT)/$(IMAGE)-setup:$(VERSION) bin/kubectl.py
 	mv secret/kubectl ~/.kube/config
+

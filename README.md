@@ -334,7 +334,7 @@ cd /boot/klot-io/bin
 
 Will install and run the config daemon and then tails its logs to make sure it's working.
 
-The daemon sets hostname to klot-io, cange pi password to 'kloudofthings', and reset network to eth0 (if needed)
+The daemon sets hostname to klot-io, change pi password to 'kloudofthings', and reset network to eth0 (if needed)
 
 ## export image to Mac
 
