@@ -18,7 +18,7 @@ if os.path.exists("secret/kubectl"):
         response = requests.post(
             f"http://{cluster}-klot-io.local/api/kubectl",
             headers={"klot-io-password": password},
-            json={"kubectl": yaml.load(config_file)}
+            json={"kubectl": yaml.safe_load(config_file)}
         )
 
 else:
