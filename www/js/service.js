@@ -44,7 +44,7 @@ DRApp.controller("Base",null,{
             window.clearTimeout(this.timeout);
         }
     },
-    rest: function(type,url,data,success,error,complete) {
+    rest: function(type,url,data) {
         var response = $.ajax({
             type: type,
             url: url,

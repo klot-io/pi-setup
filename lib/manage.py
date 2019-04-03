@@ -11,7 +11,6 @@ import functools
 import flask
 import flask_restful
 import opengui
-
 import pykube
 
 class App(pykube.objects.APIObject):
