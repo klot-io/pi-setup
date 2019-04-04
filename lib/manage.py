@@ -571,8 +571,11 @@ class AppRIU(App):
             if "resources" in obj:
                 app["resources"] = obj["resources"]
 
-            if "settings" in obj:
-                app["settings"] = obj["settings"]
+            if "subscribe" in obj:
+                app["subscribe"] = obj["subscribe"]
+
+            if "publish" in obj:
+                app["publish"] = obj["publish"]
 
         return {self.singular: app}
 

@@ -449,8 +449,51 @@ class Daemon(object):
                     for resource in obj["resources"]:
                         print "creating %s" % self.display(resource)
                         getattr(pykube, resource["kind"])(self.kube, resource).create()
-                    if "settings" in obj["spec"]:
-                        obj["settings"] = obj["spec"]["settings"]
+
+                    if "publish" in obj["spec"]:
+
+                        obj["publish"] = []
+
+                        for spec in obj["spec"]["publish"]:
+
+                            print "building %s" % spec
+
+                            publish = {}
+
+                            if "version" in spec:
+                                publish["version"] = spec["version"]
+
+                            if "protocol" in spec:
+                                publish["protocol"] = spec["protocol"]
+
+                            if "service" in spec:
+
+                                service = pykube.Service.objects(self.kube).filter(
+                                    namespace=spec["service"]["namespace"]
+                                ).get(name=spec["service"]["name"]).obj
+
+                                publish["internal"] = {
+                                    "host": "%s.%s" % (service["metadata"]["namespace"], service["metadata"]["name"])
+                                }
+
+                                if "port" in spec["service"]:
+                                    for port in service["spec"]["ports"]:
+                                        if "name" in port and port["name"] == spec["service"]["port"]:
+                                            publish["internal"]["port"] = port["port"]
+
+                                if service["spec"]["type"] == "LoadBalancer":
+
+                                    publish["external"] = {
+                                        "host": "%s.%s.%s.local" % (service["metadata"]["namespace"], service["metadata"]["name"], self.node),
+                                    }
+
+                                    if "port" in publish["internal"]:
+                                        publish["external"]["port"] = publish["internal"]["port"]
+
+                            print "publishing %s" % publish
+
+                            obj["publish"].append(publish)
+
                     obj["status"] = "Installed"
 
                 elif obj["status"] == "Uninstall":
@@ -478,14 +521,18 @@ class Daemon(object):
         for nginx_path in glob.glob("/etc/nginx/conf.d/*.conf"):
 
             host = nginx_path.split("/")[-1].split(".conf")[0]
+            external = None
             actual[host] = {"servers": []}
 
             with open(nginx_path, "r") as nginx_file:
                 for nginx_line in nginx_file:
+                    if "listen" in nginx_line:
+                        external = int(ngnix_line.split()[:-1])
                     if "proxy_pass" in nginx_line:
                         actual[host]["servers"].append({
                             "protocol": nginx_line.split(":")[0].split(" ")[-1],
-                            "port": int(nginx_line.split(":")[-1].split("/")[0])
+                            "external": external,
+                            "internal": int(nginx_line.split(":")[-1].split("/")[0])
                         })
                         actual[host]["ip"] = nginx_line.split("/")[2].split(":")[0]
 
@@ -497,9 +544,9 @@ class Daemon(object):
             for host in expected:
                 with open("/etc/nginx/conf.d/%s.conf" % host, "w") as nginx_file:
                     for server in expected[host]["servers"]:
-                        nginx_file.write(SERVER % (server["port"], host, server["protocol"], expected[host]["ip"], server["port"]))
+                        nginx_file.write(SERVER % (server["external"], host, server["protocol"], expected[host]["ip"], server["internal"]))
 
-            self.execute("systemctl restart nginx")
+            self.execute("systemctl reload nginx")
 
     def services(self):
 
@@ -525,12 +572,14 @@ class Daemon(object):
                 if port["name"].lower().startswith("https"):
                     servers.append({
                         "protocol": "https",
-                        "port": port["port"]
+                        "external": port["port"],
+                        "internal": port["targetPort"]
                     })
                 elif port["name"].lower().startswith("http"):
                     servers.append({
                         "protocol": "http",
-                        "port": port["port"]
+                        "external": port["port"],
+                        "internal": port["targetPort"]
                     })
 
             if not servers:

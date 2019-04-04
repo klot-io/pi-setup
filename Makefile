@@ -15,7 +15,7 @@ PORT=8083
 KLOTIO_HOST?=klot-io.local
 
 
-.PHONY: build shell boot cluster update export shrink config clean kubectl
+.PHONY: cross build shell boot cluster update export shrink config clean kubectl
 
 cross:
 	docker run --rm --privileged multiarch/qemu-user-static:register --reset
