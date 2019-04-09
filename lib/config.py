@@ -469,32 +469,43 @@ class Daemon(object):
 
         subscriptions = []
 
-        for service in subscribe:
+        for resource in subscribe:
 
-            field_selector = {"spec.source.%s" % field: service["recommend"][field] for field in service["recommend"]}
+            values = {}
 
-            subscription = None
+            for mapping in resource["mappings"]:
 
-            for app in [app.obj for app in pykube.App.objects(self.kube).filter(field_selector)]:
+                field_selector = {"spec.source.%s" % field: mapping["recommend"][field] for field in mapping["recommend"]}
 
-                if "publications" not in app:
-                    continue
+                try:
 
-                for publication in app["publications"]:
-                    match = True
-                    for field in service["selector"]:
-                        if field not in publication or service["selector"][field] != publication[field]:
-                            match = False
-                    if match:
-                        subscription = {
-                            "name": service["name"],
-                            "app": app["metadata"]["name"],
-                            "publication": publication["name"]
-                        }
+                    app= pykube.App.objects(self.kube).filter(field_selector).get()
 
-                if subscription:
-                    subscriptions.append(subscription)
-                    break
+                except pykube.ObjectDoesNotExist:
+
+
+                subscription = None
+
+                for app in [app.obj for app in pykube.App.objects(self.kube).filter(field_selector)]:
+
+                    if "publications" not in app:
+                        continue
+
+                    for publication in app["publications"]:
+                        match = True
+                        for field in service["selector"]:
+                            if field not in publication or service["selector"][field] != publication[field]:
+                                match = False
+                        if match:
+                            subscription = {
+                                "name": service["name"],
+                                "app": app["metadata"]["name"],
+                                "publication": publication["name"]
+                            }
+
+                    if subscription:
+                        subscriptions.append(subscription)
+                        break
 
     def publication(self, subscription):
 
