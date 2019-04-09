@@ -220,7 +220,7 @@ DRApp.controller("Base",null,{
         this.application.render(this.it);
         this.start();
     },
-    preview_change: function() {
+    apps_change: function() {
         this.stop();
         var from = $("input[name='from']:checked").val();
         if (from == "url") {
@@ -231,7 +231,7 @@ DRApp.controller("Base",null,{
             $("#from_github").show();
         }
     },
-    app_preview: function() {
+    apps_source: function() {
         var from = $("input[name='from']:checked").val();
         var source = {};
         if (from == "url") {
@@ -246,7 +246,14 @@ DRApp.controller("Base",null,{
                 source["path"] = $("#path").val()
             }
         }
-        this.it.message = this.rest("POST","/api/app", {source: source}).message;
+        return source;
+    },
+    apps_preview: function() {
+        this.it.message = this.rest("POST","/api/app", {source: this.apps_source()}).message;
+        this.application.refresh();
+    },
+    apps_install: function() {
+        this.it.message = this.rest("POST","/api/app", {source: this.apps_source(), status: "Install"}).message;
         this.application.refresh();
     },
     app: function() {

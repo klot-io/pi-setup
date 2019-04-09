@@ -39,6 +39,7 @@ def app():
     api.add_resource(AppLP, '/app')
     api.add_resource(AppRIU, '/app/<string:name>')
     api.add_resource(Label, '/label')
+    api.add_resource(Publication, '/publication')
 
     return app
 
@@ -543,6 +544,16 @@ class AppLP(App):
 
         obj = yaml.safe_load(response.text)
 
+        if (
+            not isinstance(obj, dict) or obj["apiVersion"] != "klot.io/v1" or obj["kind"] != "App" or 
+            "spec" not in obj or "source" not in obj['spec'] or obj['spec']["source"] != source or
+            "metadata" not in obj or "spec" not in obj or len(obj.keys()) != 4
+        ):
+            return {"error": "%s produced malformed App %s" % (source, obj)}, 400
+
+        if "status" in flask.request.json and flask.request.json["status"] == "Install":
+            obj["status"] = "Install"
+
         pykube.App(kube(), obj).create()
 
         return {"message": "%s queued for preview" % obj["metadata"]["name"]}, 202
@@ -571,11 +582,28 @@ class AppRIU(App):
             if "resources" in obj:
                 app["resources"] = obj["resources"]
 
-            if "subscribe" in obj:
-                app["subscribe"] = obj["subscribe"]
+            if "subscribe" in obj["spec"]:
+                app["subscribe"] = obj["spec"]["subscribe"]
 
-            if "publish" in obj:
-                app["publish"] = obj["publish"]
+            if "publish" in obj["spec"]:
+                app["publish"] = obj["spec"]["publish"]
+
+            if app["status"] == "Subscribe":
+
+                for subscribe in app["subscribe"]:
+
+                    subscribe["publications"] = Publication.query(subscribe["selector"])
+
+                    if not subscribe["publications"] and "recommend" in obj["spec"]["subscribe"]:
+                        subscribe["recommend"] = obj["spec"]["subscribe"]["recommend"]
+
+                app["subscribe"].append(subscribe)
+
+            if "subscriptions" in obj:
+                app["subscriptions"] = obj["subscriptions"]
+
+            if "publications" in obj:
+                app["publications"] = obj["publications"]
 
         return {self.singular: app}
 
@@ -589,6 +617,9 @@ class AppRIU(App):
 
         if obj["status"] != "Ready":
             return {"error": "%s App not Ready" % name}
+
+        if "subscribe" in flask.request.json:
+            obj["subscribe"] = flask.request.json["subscribe"]
 
         obj["status"] = "Install"
 
@@ -745,3 +776,59 @@ class Label(flask_restful.Resource):
         pykube.Node(kube(), obj).replace()
                         
         return {"message": "%s unlabeled %s/%s" % (label["node"], label["app"], label["name"])}
+
+class Publication(flask_restful.Resource):
+
+    plural = "publications"
+
+    @staticmethod
+    def query(selector=None):
+
+        if selector is None:
+            selector = {}
+
+        publications = []
+
+        for obj in [app.obj for app in pykube.App.objects(kube()).filter()]:
+
+            if "publications" not in obj:
+                continue
+
+            for publication in obj["publications"]:
+
+                match = True
+                for parameter in selector:
+                    if parameter not in publish or publish[parameter] != selector[parameter]:
+                        match = False
+
+                if not match:
+                    continue
+
+                publication.update({"app": obj["metadata"]["name"]})
+
+                publications.append(publication)
+
+        def compare(a, b):
+
+            if a["protocol"] != b["protocol"]:
+                retun a["protocol"] cmp b["protocol"]
+            elif a["version"] != b["version"]:
+                retun a["version"] cmp b["version"]
+            else:
+                retun a["host"] cmp b["host"]
+
+        publications.sort(compare)
+
+        return publications
+
+    @require_auth
+    def get(self):
+
+        publications = []
+
+        if kube():
+
+            publications = self.query(flask.request.args)
+                        
+        return {self.plural: publications}
+

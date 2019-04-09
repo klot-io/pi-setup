@@ -7,18 +7,16 @@
     </div>
     {{?}}
     <form class="uk-form">
+        Load
         <div class="uk-form-row">
-            <button type="button" onClick="DRApp.current.controller.app_preview();" class="uk-button uk-button-primary">
-                Preview
-            </button>
             from
             <input 
                 type="radio" name="from" value="github"
-                OnClick="DRApp.current.controller.preview_change();"
+                OnClick="DRApp.current.controller.apps_change();"
             /> GitHub
             <input 
                 type="radio" name="from" value="url" 
-                OnClick="DRApp.current.controller.preview_change();"
+                OnClick="DRApp.current.controller.apps_change();"
             /> URL
         </div>
         <div id="from_github" class="uk-form-row" style="display: none;">
@@ -28,6 +26,14 @@
         </div>
         <div id="from_url" class="uk-form-row" style="display: none;">
             <input id="url" placeholder="url" type="text" class="uk-form-width-large"/>
+        </div>
+        <div id="apps_action" class="uk-form-row" style="display: none;">
+            <button type="button" onClick="DRApp.current.controller.apps_install();" class="uk-button uk-button-primary">
+                Install
+            </button>
+            <button type="button" onClick="DRApp.current.controller.apps_preview();" class="uk-button uk-button-primary">
+                Preview
+            </button>
         </div>
     </form>
     <table class="uk-table uk-table-hover">

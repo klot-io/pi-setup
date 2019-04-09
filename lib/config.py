@@ -431,6 +431,121 @@ class Daemon(object):
 
         return "/".join(display)
 
+    def app(self, source):
+
+        if "url" in source:
+
+            url = source["url"]
+
+        elif "site" in source and source["site"] == "github.com":
+
+            if "repo" not in source:
+                raise Exception("missing source.repo for %s" % source["site"])
+
+            repo = source["repo"]
+            version = source["version"] if "version" in source else "master"
+            path = source["path"] if "path" in source else "klot-io-app.yaml"
+
+            url = "https://raw.githubusercontent.com/%s/%s/%s" % (repo, version, path)
+
+        else:
+
+            raise Exception("cannot preview %s" % source)
+
+        response = requests.get(url)
+
+        if response.status_code != 200:
+            raise Exception("error from source %s url: %s - %s: %s" % (source, url, response.status_code, response.text)) 
+
+        obj = yaml.safe_load(response.text)
+
+        if (
+            not isinstance(obj, dict) or obj["apiVersion"] != "klot.io/v1" or obj["kind"] != "App" or 
+            "metadata" not in obj or "spec" not in obj or len(obj.keys()) != 4
+        ):
+            raise Exception("source %s has malformed App %s" % (source, obj))
+
+    def subscribe(self, subscribe):
+
+        subscriptions = []
+
+        for service in subscribe:
+
+            field_selector = {"spec.source.%s" % field: service["recommend"][field] for field in service["recommend"]}
+
+            subscription = None
+
+            for app in [app.obj for app in pykube.App.objects(self.kube).filter(field_selector)]:
+
+                if "publications" not in app:
+                    continue
+
+                for publication in app["publications"]:
+                    match = True
+                    for field in service["selector"]:
+                        if field not in publication or service["selector"][field] != publication[field]:
+                            match = False
+                    if match:
+                        subscription = {
+                            "name": service["name"],
+                            "app": app["metadata"]["name"],
+                            "publication": publication["name"]
+                        }
+
+                if subscription:
+                    subscriptions.append(subscription)
+                    break
+
+    def publication(self, subscription):
+
+        app = pykube.App.objects(self.kube).filter(name: subscription["app"]).get().obj
+
+        for publication in app["publications"]:
+            if publication["name"] == subscription["publication"]:
+                return publication
+
+    def subscription(self, publication):
+
+
+
+    def publish(self, publish):
+
+        publications = []
+
+        for spec in publish:
+
+            print "building %s" % spec
+
+            publication = {}
+
+            for field in spec:
+
+                if field = "service":
+
+                    service = pykube.Service.objects(self.kube).filter(
+                        namespace=spec["service"]["namespace"]
+                    ).get(name=spec["service"]["name"]).obj
+
+                    publication["host"] = "host": "%s.%s" % (service["metadata"]["namespace"], service["metadata"]["name"])
+
+                    if "port" in spec["service"]:
+                        for port in service["spec"]["ports"]:
+                            if "name" in port and port["name"] == spec["service"]["port"]:
+                                publication["port"] = port["port"]
+
+                    if service["spec"]["type"] == "LoadBalancer":
+                        publication["ingress"] = True
+
+                else:
+
+                    publication[field] = spec[field]
+
+            print "publishing %s" % publication
+
+            publications.append(publication)
+
+        return publications
+
     def apps(self):
 
         for obj in [app.obj for app in pykube.App.objects(self.kube).filter()]:
@@ -438,61 +553,49 @@ class Daemon(object):
             try:
 
                 if "status" not in obj:
+                    obj["status"] = "Preview"
 
-                    print "fetching resources for %s" % self.display(obj)
+                if obj["status"] in ["Installed", "Error"]:
+                    continue
+
+                if "resources" not in obj:
                     obj["resources"] = self.resources(obj)
-                    obj["status"] = "Ready"
 
-                elif obj["status"] == "Install":
+                if "subscribe" in obj["spec"]:
+                    for subscribe in obj["spec"]["subscribe"]:
+                        if "recommend" in subscribe:
+                            self.app(subscribe["recommend"])
+
+                if obj["status"] == "Install":
+
+                    if "subscribe" in obj["spec"] and "subscriptions" not in obj:
+                        print "subscribing %s" % self.display(obj)
+
+                        subscriptions = self.subscribe(obj["spec"]["subscribe"])
+
+                        if len(subscriptions) == len(obj["spec"]["subscribe"]):
+                            obj["subscriptions"] = subscriptions
 
                     print "installing %s" % self.display(obj)
                     for resource in obj["resources"]:
                         print "creating %s" % self.display(resource)
                         getattr(pykube, resource["kind"])(self.kube, resource).create()
 
+                    if "subscriptions" in obj:
+
+                        config = {}
+
+                        for subscription in obj["subscriptions"]:
+
+                            publication = self.publication(subscription)
+
+                            value = json.dumps(publication) if 
+
+
+                            self.subscription(subscription)
+
                     if "publish" in obj["spec"]:
-
-                        obj["publish"] = []
-
-                        for spec in obj["spec"]["publish"]:
-
-                            print "building %s" % spec
-
-                            publish = {}
-
-                            if "version" in spec:
-                                publish["version"] = spec["version"]
-
-                            if "protocol" in spec:
-                                publish["protocol"] = spec["protocol"]
-
-                            if "service" in spec:
-
-                                service = pykube.Service.objects(self.kube).filter(
-                                    namespace=spec["service"]["namespace"]
-                                ).get(name=spec["service"]["name"]).obj
-
-                                publish["internal"] = {
-                                    "host": "%s.%s" % (service["metadata"]["namespace"], service["metadata"]["name"])
-                                }
-
-                                if "port" in spec["service"]:
-                                    for port in service["spec"]["ports"]:
-                                        if "name" in port and port["name"] == spec["service"]["port"]:
-                                            publish["internal"]["port"] = port["port"]
-
-                                if service["spec"]["type"] == "LoadBalancer":
-
-                                    publish["external"] = {
-                                        "host": "%s.%s.%s.local" % (service["metadata"]["namespace"], service["metadata"]["name"], self.node),
-                                    }
-
-                                    if "port" in publish["internal"]:
-                                        publish["external"]["port"] = publish["internal"]["port"]
-
-                            print "publishing %s" % publish
-
-                            obj["publish"].append(publish)
+                        obj["publications"] = self.publish(obj["spec"]["publish"])
 
                     obj["status"] = "Installed"
 
