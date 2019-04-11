@@ -15,6 +15,12 @@
             <label class="uk-form-label" for="description">description:</label>
             {{=it.app.description}}
         </div>
+        {{?it.app.url}}
+        <div class="uk-form-row">
+            <label class="uk-form-label" for="url">url:</label>
+            <a href="{{!it.app.url}}" target="{{!it.app.name}}">{{=it.app.url}}</a>
+        </div>
+        {{?}}
         <div class="uk-form-row">
             <label class="uk-form-label" for="labels">labels:</label>
             {{~it.labels :label}}
@@ -33,69 +39,69 @@
             <br/>
             {{~}}
         </div>
-        {{?it.app.subscribe}}
+        {{?it.app.action}}
         <div class="uk-form-row">
-            <label class="uk-form-label" for="subscribe">subscribe:</label>
-            {{?it.app.status == "Subscribe"}}
-                {{~it.app.subscribe :subscribe}}
-                    {{=subscribe.name}}
-                    {{?subscribe.publications}}
-                        {{~subscribe.publications :publication}}
-                        <input 
-                            type="radio" name="subscribe-{{!subscribe.name}}" value="{{!publication.app}}/{{!publication.name}}" 
-                            OnClick="DRApp.current.controller.apps_change();"
-                        /> {{!publication.app}}/{{!publication.name}}
-                        {{~}}
-                    {{?? subscribe.recommend}}
-
-                        <button type="button" onClick="DRApp.current.controller.app_preview();" class="uk-button uk-button-primary">
-                            Preview
-                        </button>
-                    {{?}}
-                    <br/>
-                {{~}}
-            {{??}}
-                <pre>
-                    {{=JSON.stringify(it.app.subscribe, null, 2)}}
-                </pre>
-            {{?}}
+            <label class="uk-form-label" for="action">action:</label>
+            {{=it.app.action}}
         </div>
         {{?}}
         <div class="uk-form-row">
             <label class="uk-form-label" for="status">status:</label>
             {{=it.app.status}}
-            {{?it.app.status == "Ready"}}
-            <button type="button" onClick="DRApp.current.controller.app_install();" class="uk-button uk-button-primary">
-                Install
-            </button>
-            {{??it.app.status == "Installed"}}
-            <button type="button" onClick="DRApp.current.controller.app_uninstall();" class="uk-button uk-button-primary">
-                Uninstall
-            </button>
+            {{?it.app.status == "Downloaded" && it.app.action != "Install"}}
+                <button type="button" onClick="DRApp.current.controller.app_action('{{!it.app.name}}', 'Install');" class="uk-button uk-button-primary">
+                    Install
+                </button>
+            {{?}}
+            {{?it.app.status != "Installed"}}
+                <button type="button" onClick="DRApp.current.controller.app_delete('{{!it.app.name}}');" class="uk-button uk-button-primary">
+                    Delete
+                </button>
+            {{?? it.app.action != "Uninstall" }}
+                {{?it.app.url}}
+                    <a class="uk-button uk-button-primary" href="{{!it.app.url}}" target="{{!it.app.name}}">Open</a>
+                {{?}}
+                <button type="button" onClick="DRApp.current.controller.app_action('{{!it.app.name}}', 'Uninstall');" class="uk-button uk-button-primary">
+                    Uninstall
+                </button>
             {{?}}
         </div>
-        {{?it.app.subscribe}}
+        {{?it.app.error}}
         <div class="uk-form-row">
-            <label class="uk-form-label" for="subscribe">subscribe:</label>
+            <label class="uk-form-label" for="error">error:</label>
             <pre>
-                {{=JSON.stringify(it.app.subscribe, null, 2)}}
+                {{=it.app.error.join("\n")}}
             </pre>
         </div>
         {{?}}
-        {{?it.app.status == "Installed" && it.app.publish}}
+        {{?it.app.publications}}
         <div class="uk-form-row">
-            <label class="uk-form-label" for="publish">publish:</label>
-            <pre>
-                {{=JSON.stringify(it.app.publish, null, 2)}}
-            </pre>
+            <label class="uk-form-label" for="publications">publications:</label>
+            <pre>{{=DRApp.YAML(it.app.publications)}}</pre>
+        </div>
+        {{?}}
+        {{?it.app.subscriptions}}
+        <div class="uk-form-row">
+            <label class="uk-form-label" for="subscriptions">subscriptions:</label>
+            <pre>{{=DRApp.YAML(it.app.subscriptions)}}</pre>
         </div>
         {{?}}
         {{?it.app.resources}}
         <div class="uk-form-row">
             <label class="uk-form-label" for="resources">resources:</label>
-            <pre>
-                {{=JSON.stringify(it.app.resources, null, 2)}}
-            </pre>
+            <pre>{{=DRApp.YAML(it.app.resources)}}</pre>
+        </div>
+        {{?}}
+        {{?it.app.publish}}
+        <div class="uk-form-row">
+            <label class="uk-form-label" for="publish">publish:</label>
+            <pre>{{=DRApp.YAML(it.app.publish)}}</pre>
+        </div>
+        {{?}}
+        {{?it.app.subscribe}}
+        <div class="uk-form-row">
+            <label class="uk-form-label" for="subscribe">subscribe:</label>
+            <pre>{{=DRApp.YAML(it.app.subscribe)}}</pre>
         </div>
         {{?}}
     </form>

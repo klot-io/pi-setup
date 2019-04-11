@@ -17,14 +17,6 @@ import avahi
 import dbus
 import encodings.idna
 
-class App(pykube.objects.APIObject):
-
-    version = "klot.io/v1"
-    endpoint = "apps"
-    kind = "App"
-
-pykube.App = App
-
 
 WPA = """ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
 update_config=1
@@ -37,15 +29,16 @@ network={
 }
 """
 
-RESOURCES = {
-    "Namespace": 1,
-    "ServiceAccont": 2,
-    "ClusterRole": 3,
-    "ClusterRoleBinding": 4,
-    "Role": 5,
-    "RoleBinding": 6,
-    "*": 7
-}
+RESOURCES = [
+    "Namespace",
+    "ConfigMap",
+    "Secret",
+    "ServiceAccount",
+    "ClusterRole",
+    "ClusterRoleBinding",
+    "Role",
+    "RoleBinding"
+]
 
 SERVER = """server {
 
@@ -379,7 +372,10 @@ class Daemon(object):
 
     def resources(self, obj):
 
-        resources = []
+        if "resources" in obj:
+            return
+
+        obj["resources"] = []
 
         for manifest in obj["spec"]["manifests"]:
 
@@ -414,24 +410,37 @@ class Daemon(object):
             if response.status_code != 200:
                 raise AppException("%s error from %s: %s" % (response.status_code, url, response.text))
 
-            resources.extend(list(yaml.safe_load_all(response.text)))
+            obj["resources"].extend(list(yaml.safe_load_all(response.text)))
 
-        resources.sort(key= lambda resource: RESOURCES[resource["kind"]] if resource["kind"] in RESOURCES else RESOURCES["*"])
-
-        return resources
+        obj["resources"].sort(key= lambda resource: RESOURCES.index(resource["kind"]) if resource["kind"] in RESOURCES else len(RESOURCES))
 
     def display(self, obj):
 
         display = [obj["kind"]]
 
-        if "namespace" in obj["metadata"]:
+        if "namespace" in obj["metadata"] and obj["metadata"]["namespace"]:
             display.append(obj["metadata"]["namespace"])
 
         display.append(obj["metadata"]["name"])
 
         return "/".join(display)
 
-    def app(self, source):
+    def app(self, source, action):
+
+        print "searching for %s" % source
+
+        for app in [app.obj for app in pykube.App.objects(self.kube).filter()]:
+
+            match = True
+            for field in source:
+                if field not in app["spec"]["source"] or source[field] != app["spec"]["source"][field]:
+                    match = False
+
+            if match:
+                print "found %s %s" % (app["metadata"]["name"], app["spec"]["source"])
+                return app
+
+        print "creating %s" % source
 
         if "url" in source:
 
@@ -452,6 +461,8 @@ class Daemon(object):
 
             raise Exception("cannot preview %s" % source)
 
+        print "requesting %s" % url
+
         response = requests.get(url)
 
         if response.status_code != 200:
@@ -465,79 +476,118 @@ class Daemon(object):
         ):
             raise Exception("source %s has malformed App %s" % (source, obj))
 
-    def subscribe(self, subscribe):
+        obj["action"] = action
+        obj["status"] = "Discovered"
 
-        subscriptions = []
+        pykube.App(self.kube, obj).create()
 
-        for resource in subscribe:
+        return obj
 
-            values = {}
+    def source(self, obj):
 
-            for mapping in resource["mappings"]:
+        if "subscribe" in obj["spec"]:
 
-                field_selector = {"spec.source.%s" % field: mapping["recommend"][field] for field in mapping["recommend"]}
+            for subscribe in obj["spec"]["subscribe"]:
 
-                try:
+                print "sourcing %s" % subscribe
 
-                    app= pykube.App.objects(self.kube).filter(field_selector).get()
+                app = self.app(subscribe["source"], obj["action"])
 
-                except pykube.ObjectDoesNotExist:
+                print "sourced %s %s" % (app["metadata"]["name"], app["spec"]["source"])
 
+    def subscribe(self, obj):
 
-                subscription = None
+        subscribed = True
 
-                for app in [app.obj for app in pykube.App.objects(self.kube).filter(field_selector)]:
+        if "subscribe" in obj["spec"]:
 
-                    if "publications" not in app:
-                        continue
+            obj["subscriptions"] = []
 
-                    for publication in app["publications"]:
-                        match = True
-                        for field in service["selector"]:
-                            if field not in publication or service["selector"][field] != publication[field]:
-                                match = False
-                        if match:
-                            subscription = {
-                                "name": service["name"],
-                                "app": app["metadata"]["name"],
-                                "publication": publication["name"]
-                            }
+            for subscribe in obj["spec"]["subscribe"]:
 
-                    if subscription:
-                        subscriptions.append(subscription)
-                        break
+                print "subscribing %s" % subscribe
 
-    def publication(self, subscription):
+                app = self.app(subscribe["source"], obj["action"])
 
-        app = pykube.App.objects(self.kube).filter(name: subscription["app"]).get().obj
+                if app["status"] != "Installed":
 
-        for publication in app["publications"]:
-            if publication["name"] == subscription["publication"]:
-                return publication
+                    subscribed = False
 
-    def subscription(self, publication):
+                    if obj["action"] == "Install" and app["status"] != "Error":
+                        app["action"] = "Install"
+                        pykube.App(self.kube, app).replace()
 
+                subscription = {
+                    "name": subscribe["name"],
+                    "app": app["metadata"]["name"],
+                    "project": subscribe["project"]
+                }
 
+                print "subscribed %s" % subscription
 
-    def publish(self, publish):
+                obj["subscriptions"].append(subscription)
 
-        publications = []
+        return subscribed
 
-        for spec in publish:
+    def project(self, obj):
 
-            print "building %s" % spec
+        if "subscriptions" not in obj:
+            return
+
+        for subscription in obj["subscriptions"]:
+
+            if "project" not in subscription:
+                continue
+
+            project = subscription["project"]
+
+            print "projecting %s" % project
+
+            app = pykube.App.objects(self.kube).filter().get(name=subscription["app"]).obj
+
+            for publication in app["publications"]:
+
+                if publication["name"] == project["publication"]:
+
+                    encoding = project.get("encoding", "yaml")
+                    key = project.get("key", "%s.%s" % (subscription["name"], encoding))
+
+                    config = pykube.ConfigMap.objects(self.kube).filter(namespace=project["namespace"]).get(name=project["name"]).obj
+
+                    if "data" not in config:
+                        config["data"] = {}
+
+                    if encoding == "json":
+                        config["data"][key] = json.dumps(publication, indent=2)
+                    else:
+                        config["data"][key] = yaml.safe_dump(publication, default_flow_style=False)
+
+                    pykube.ConfigMap(self.kube, config).replace()
+
+                    break
+
+    def publish(self, obj):
+
+        if "publish" not in obj["spec"]:
+            return
+
+        obj["publications"] = []
+
+        for spec in obj["spec"]["publish"]:
+
+            print "publishing %s" % spec
 
             publication = {}
 
             for field in spec:
 
-                if field = "service":
+                if field == "service":
 
                     service = pykube.Service.objects(self.kube).filter(
                         namespace=spec["service"]["namespace"]
                     ).get(name=spec["service"]["name"]).obj
 
-                    publication["host"] = "host": "%s.%s" % (service["metadata"]["namespace"], service["metadata"]["name"])
+                    publication["host"] = "%s.%s" % (service["metadata"]["name"], service["metadata"]["namespace"])
 
                     if "port" in spec["service"]:
                         for port in service["spec"]["ports"]:
@@ -551,11 +601,33 @@ class Daemon(object):
 
                     publication[field] = spec[field]
 
-            print "publishing %s" % publication
+            print "published %s" % publication
 
-            publications.append(publication)
+            obj["publications"].append(publication)
 
-        return publications
+    def url(self, obj):
+
+        if "url" not in obj["spec"] or "publications" not in obj:
+            return
+
+        print "creating url %s " % obj["spec"]["url"]
+
+        for publication in obj["publications"]:
+
+            if obj["spec"]["url"]["publication"] == publication["name"]:
+
+                obj["url"] = "%s://%s.%s.local" % (publication["protocol"], publication["host"], self.node)
+
+                if (
+                    publication["protocol"] == "http" and publication["port"] != 80 or 
+                    publication["protocol"] == "https" and publication["port"] != 443
+                ):
+                    obj["url"] = "%s:%s" % (obj["url"], obj["port"])
+
+                if "path" in obj["spec"]["url"]:
+                    obj["url"] = "%s/%s" % (obj["url"], obj["path"])
+
+                print "created url %s " % obj["url"]
 
     def apps(self):
 
@@ -564,66 +636,54 @@ class Daemon(object):
             try:
 
                 if "status" not in obj:
-                    obj["status"] = "Preview"
+                    obj["status"] = "Discovered"
 
-                if obj["status"] in ["Installed", "Error"]:
-                    continue
+                if "action" not in obj:
+                    obj["action"] = "Download"
 
-                if "resources" not in obj:
-                    obj["resources"] = self.resources(obj)
+                if obj["status"] == "Discovered" and "resources" not in obj:
+                    self.resources(obj)
+                    self.source(obj)
+                    obj["status"] = "Downloaded"
 
-                if "subscribe" in obj["spec"]:
-                    for subscribe in obj["spec"]["subscribe"]:
-                        if "recommend" in subscribe:
-                            self.app(subscribe["recommend"])
-
-                if obj["status"] == "Install":
-
-                    if "subscribe" in obj["spec"] and "subscriptions" not in obj:
-                        print "subscribing %s" % self.display(obj)
-
-                        subscriptions = self.subscribe(obj["spec"]["subscribe"])
-
-                        if len(subscriptions) == len(obj["spec"]["subscribe"]):
-                            obj["subscriptions"] = subscriptions
+                if obj["action"] == "Install" and obj["status"] not in ["Installed", "Error"] and self.subscribe(obj):
 
                     print "installing %s" % self.display(obj)
                     for resource in obj["resources"]:
-                        print "creating %s" % self.display(resource)
-                        getattr(pykube, resource["kind"])(self.kube, resource).create()
+                        print "applying %s" % self.display(resource)
+                        Resource = getattr(pykube, resource["kind"])
+                        try:
+                            Resource(self.kube, resource).replace()
+                        except pykube.PyKubeError:
+                            Resource(self.kube, resource).delete()
+                            Resource(self.kube, resource).create()
 
-                    if "subscriptions" in obj:
-
-                        config = {}
-
-                        for subscription in obj["subscriptions"]:
-
-                            publication = self.publication(subscription)
-
-                            value = json.dumps(publication) if 
-
-
-                            self.subscription(subscription)
-
-                    if "publish" in obj["spec"]:
-                        obj["publications"] = self.publish(obj["spec"]["publish"])
+                    self.project(obj)
+                    self.publish(obj)
+                    self.url(obj)
 
                     obj["status"] = "Installed"
 
-                elif obj["status"] == "Uninstall":
+                elif obj["status"] == "Installed" and obj["action"] == "Uninstall":
 
-                    print "unininstalling %s" % self.display(obj)
+                    print "uninstalling %s" % self.display(obj)
                     for resource in reversed(obj["resources"]):
                         print "deleting %s" % self.display(resource)
                         getattr(pykube, resource["kind"])(self.kube, resource).delete()
-                    if "settings" in obj:
-                        del obj["settings"]
-                    obj["status"] = "Ready"
+                    if "subscriptions" in obj:
+                        del obj["subscriptions"]
+                    if "publications" in obj:
+                        del obj["publications"]
+                    if "url" in obj:
+                        del obj["url"]
+
+                    obj["action"] = "Download"
+                    obj["status"] = "Downloaded"
 
             except Exception as exception:
 
                 obj["status"] = "Error"
-                obj["error"] = str(exception)
+                obj["error"] = traceback.format_exc().splitlines()
                 traceback.print_exc()
 
             pykube.App(self.kube, obj).replace()
@@ -641,7 +701,7 @@ class Daemon(object):
             with open(nginx_path, "r") as nginx_file:
                 for nginx_line in nginx_file:
                     if "listen" in nginx_line:
-                        external = int(ngnix_line.split()[:-1])
+                        external = int(nginx_line.split()[-1][:-1])
                     if "proxy_pass" in nginx_line:
                         actual[host]["servers"].append({
                             "protocol": nginx_line.split(":")[0].split(" ")[-1],
@@ -736,7 +796,7 @@ class Daemon(object):
 
         past = time.time() - 60
 
-        for tmp_file in glob.glob("/tmp/tmp??????"):
+        for tmp_file in list(glob.glob("/tmp/tmp??????")):
             if past > os.path.getmtime(tmp_file):
                 os.remove(tmp_file)
 

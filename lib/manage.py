@@ -13,14 +13,6 @@ import flask_restful
 import opengui
 import pykube
 
-class App(pykube.objects.APIObject):
-
-    version = "klot.io/v1"
-    endpoint = "apps"
-    kind = "App"
-
-pykube.App = App
-
 def app():
 
     app = flask.Flask("klot-io-api")
@@ -69,6 +61,18 @@ def require_auth(endpoint):
 
         if flask.request.headers["klot-io-password"] != password:
             return {"error": "invalid password"}, 401
+
+        return endpoint(*args, **kwargs)
+
+    return wrap
+
+
+def require_kube(endpoint):
+    @functools.wraps(endpoint)
+    def wrap(*args, **kwargs):
+
+        if not kube():
+            return {"error": "kubernetes not available"}, 503
 
         return endpoint(*args, **kwargs)
 
@@ -423,10 +427,8 @@ class Node(flask_restful.Resource):
         return response.json(), response.status_code
 
     @require_auth
+    @require_kube
     def delete(self):
-
-        if not kube():
-            return {"error": "not initialized"}, 400
 
         if self.name not in flask.request.json:
             return {"error": "missing %s" % self.name}, 400
@@ -452,27 +454,26 @@ class Node(flask_restful.Resource):
 class Pod(flask_restful.Resource):
 
     @require_auth
+    @require_kube
     def get(self):
 
         pods = []
 
-        if kube():
+        namespace = flask.request.args["namespace"] if "namespace" in flask.request.args else pykube.all
 
-            namespace = flask.request.args["namespace"] if "namespace" in flask.request.args else pykube.all
+        for obj in [pod.obj for pod in pykube.Pod.objects(kube()).filter(namespace=namespace)]:
 
-            for obj in [pod.obj for pod in pykube.Pod.objects(kube()).filter(namespace=namespace)]:
+            pod = {
+                "namespace": obj["metadata"]["namespace"],
+                "name": obj["metadata"]["name"],
+                "status": obj["status"]["phase"],
+                "node": None
+            }
 
-                pod = {
-                    "namespace": obj["metadata"]["namespace"],
-                    "name": obj["metadata"]["name"],
-                    "status": obj["status"]["phase"],
-                    "node": None
-                }
+            if "nodeName" in obj["spec"]:
+                pod["node"] = obj["spec"]["nodeName"]
 
-                if "nodeName" in obj["spec"]:
-                    pod["node"] = obj["spec"]["nodeName"]
-
-                pods.append(pod)
+            pods.append(pod)
 
         return {"pods": sorted(pods, key=lambda pod: pod["name"])}
 
@@ -482,36 +483,65 @@ class App(flask_restful.Resource):
     singular = "app"
     plural = "apps"
 
+    @staticmethod
+    def to_dict(obj, short=False):
+
+        app = {
+            "name": obj["metadata"]["name"],
+            "description": obj["metadata"]["description"],
+            "labels": obj["spec"]["labels"],
+            "action": "Download",
+            "status": "Discovered"
+        }
+
+        if "status" in obj:
+            app["status"] = obj["status"]
+
+        if "action" in obj:
+            app["action"] = obj["action"]
+
+        if "url" in obj:
+            app["url"] = obj["url"]
+
+        if not short:
+
+            if "error" in obj:
+                app["error"] = obj["error"]
+
+            if "resources" in obj:
+                app["resources"] = obj["resources"]
+
+            if "subscribe" in obj["spec"]:
+                app["subscribe"] = obj["spec"]["subscribe"]
+
+            if "publish" in obj["spec"]:
+                app["publish"] = obj["spec"]["publish"]
+
+            if "subscriptions" in obj:
+                app["subscriptions"] = obj["subscriptions"]
+
+            if "publications" in obj:
+                app["publications"] = obj["publications"]
+
+        return app
+
 class AppLP(App):
 
     @require_auth
+    @require_kube
     def get(self):
 
         apps = []
 
-        if kube():
+        for obj in [app.obj for app in pykube.App.objects(kube()).filter()]:
 
-            for obj in [app.obj for app in pykube.App.objects(kube()).filter()]:
-
-                app = {
-                    "name": obj["metadata"]["name"],
-                    "description": obj["metadata"]["description"],
-                    "labels": obj["spec"]["labels"],
-                    "status": "Preview"
-                }
-
-                if "status" in obj:
-                    app["status"] = obj["status"]
-
-                apps.append(app)
+            apps.append(self.to_dict(obj, short=True))
 
         return {self.plural: sorted(apps, key=lambda app: app["name"])}
 
     @require_auth
+    @require_kube
     def post(self):
-
-        if not kube():
-            return {"error": "kubernetes not available"}, 503
 
         if "source" not in flask.request.json:
             return {"error": "missing source"}, 400
@@ -551,8 +581,8 @@ class AppLP(App):
         ):
             return {"error": "%s produced malformed App %s" % (source, obj)}, 400
 
-        if "status" in flask.request.json and flask.request.json["status"] == "Install":
-            obj["status"] = "Install"
+        if "action" in flask.request.json:
+            obj["action"] = flask.request.json["action"]
 
         pykube.App(kube(), obj).create()
 
@@ -561,89 +591,41 @@ class AppLP(App):
 class AppRIU(App):
 
     @require_auth
+    @require_kube
     def get(self, name):
 
-        app = {}
+        obj = pykube.App.objects(kube()).filter().get(name=name).obj
 
-        if kube():
-
-            obj = pykube.App.objects(kube()).filter().get(name=name).obj
-
-            app = {
-                "name": obj["metadata"]["name"],
-                "description": obj["metadata"]["description"],
-                "labels": obj["spec"]["labels"],
-                "status": "Preview"
-            }
-
-            if "status" in obj:
-                app["status"] = obj["status"]
-
-            if "resources" in obj:
-                app["resources"] = obj["resources"]
-
-            if "subscribe" in obj["spec"]:
-                app["subscribe"] = obj["spec"]["subscribe"]
-
-            if "publish" in obj["spec"]:
-                app["publish"] = obj["spec"]["publish"]
-
-            if app["status"] == "Subscribe":
-
-                for subscribe in app["subscribe"]:
-
-                    subscribe["publications"] = Publication.query(subscribe["selector"])
-
-                    if not subscribe["publications"] and "recommend" in obj["spec"]["subscribe"]:
-                        subscribe["recommend"] = obj["spec"]["subscribe"]["recommend"]
-
-                app["subscribe"].append(subscribe)
-
-            if "subscriptions" in obj:
-                app["subscriptions"] = obj["subscriptions"]
-
-            if "publications" in obj:
-                app["publications"] = obj["publications"]
-
-        return {self.singular: app}
+        return {self.singular: self.to_dict(obj)}
 
     @require_auth
-    def post(self, name):
+    @require_kube
+    def patch(self, name):
 
-        if not kube():
-            return {"error": "kubernetes not available"}, 503
+        if "action" not in flask.request.json:
+            return {"error": "missing action"}, 400
 
         obj = pykube.App.objects(kube()).filter().get(name=name).obj
 
-        if obj["status"] != "Ready":
-            return {"error": "%s App not Ready" % name}
-
-        if "subscribe" in flask.request.json:
-            obj["subscribe"] = flask.request.json["subscribe"]
-
-        obj["status"] = "Install"
+        obj["action"] = flask.request.json["action"]
 
         pykube.App(kube(), obj).replace()
 
-        return {"message": "%s queued for install" % name}, 201
+        return {self.singular: self.to_dict(obj)}
 
 
     @require_auth
+    @require_kube
     def delete(self, name):
 
-        if not kube():
-            return {"error": "kubernetes not available"}, 503
-
         obj = pykube.App.objects(kube()).filter().get(name=name).obj
 
-        if obj["status"] != "Installed":
-            return {"error": "%s App not Installed" % name}
+        if "status" in obj and obj["status"] == "Installed":
+            return {"error": "Can't delete Installed %s. Uninstall first." % name}
 
-        obj["status"] = "Uninstall"
+        pykube.App(kube(), obj).delete()
 
-        pykube.App(kube(), obj).replace()
-
-        return {"message": "%s queued for uninstall" % name}, 201
+        return {"message": "%s deleted" % name}, 201
 
 
 class Label(flask_restful.Resource):
@@ -652,51 +634,48 @@ class Label(flask_restful.Resource):
     plural = "labels"
 
     @require_auth
+    @require_kube
     def get(self):
 
         labels = []
 
-        if kube():
+        app_filter = {}
 
-            app_filter = {}
+        if "app" in flask.request.args:
+            app_filter["field_selector"] = {"metadata.name": flask.request.args["app"]}
 
-            if "app" in flask.request.args:
-                app_filter["field_selector"] = {"metadata.name": flask.request.args["app"]}
+        node_filter = {}
 
-            node_filter = {}
+        if "node" in flask.request.args:
+            node_filter["field_selector"] = {"metadata.name": flask.request.args["node"]}
 
-            if "node" in flask.request.args:
-                node_filter["field_selector"] = {"metadata.name": flask.request.args["node"]}
+        for obj in [app.obj for app in pykube.App.objects(kube()).filter(**app_filter)]:
+            if "labels" in obj["spec"]:
+                for label in obj["spec"]["labels"]:
+                    labels.append({
+                        "app": obj["metadata"]["name"],
+                        "name": label["name"],
+                        "value": label["value"],
+                        "description": label["description"],
+                        "master": label["master"] if "master" in label else False,
+                        "nodes": []
+                    })
 
-            for obj in [app.obj for app in pykube.App.objects(kube()).filter(**app_filter)]:
-                if "labels" in obj["spec"]:
-                    for label in obj["spec"]["labels"]:
-                        labels.append({
-                            "app": obj["metadata"]["name"],
-                            "name": label["name"],
-                            "value": label["value"],
-                            "description": label["description"],
-                            "master": label["master"] if "master" in label else False,
-                            "nodes": []
-                        })
-
-            for obj in [node.obj for node in pykube.Node.objects(kube()).filter(**node_filter)]:
-                if "labels" in obj["metadata"]:
-                    for node_label in obj["metadata"]["labels"]:
-                        for app_label in labels:
-                            if (
-                                node_label == "%s/%s" % (app_label["app"], app_label["name"]) and
-                                obj["metadata"]["labels"][node_label] == app_label["value"]
-                            ):
-                                app_label["nodes"].append(obj["metadata"]["name"])
+        for obj in [node.obj for node in pykube.Node.objects(kube()).filter(**node_filter)]:
+            if "labels" in obj["metadata"]:
+                for node_label in obj["metadata"]["labels"]:
+                    for app_label in labels:
+                        if (
+                            node_label == "%s/%s" % (app_label["app"], app_label["name"]) and
+                            obj["metadata"]["labels"][node_label] == app_label["value"]
+                        ):
+                            app_label["nodes"].append(obj["metadata"]["name"])
                         
         return {self.plural: sorted(labels, key=lambda label: "%s/%s=%s" % (label["app"], label["name"], label["value"]))}
 
     @require_auth
+    @require_kube
     def post(self):
-
-        if not kube():
-            return {"error": "kubernetes not available"}, 503
 
         if self.singular not in flask.request.json:
             return {"error": "missing %s" % self.singular}, 400
@@ -739,10 +718,8 @@ class Label(flask_restful.Resource):
         return {"message": "%s labeled %s/%s=%s" % (label["node"], label["app"], label["name"], label["value"])}
 
     @require_auth
+    @require_kube
     def delete(self):
-
-        if not kube():
-            return {"error": "kubernetes not available"}, 503
 
         if self.singular not in flask.request.json:
             return {"error": "missing %s" % self.singular}, 400
@@ -811,24 +788,18 @@ class Publication(flask_restful.Resource):
         def compare(a, b):
 
             if a["protocol"] != b["protocol"]:
-                retun a["protocol"] cmp b["protocol"]
+                return cmp(a["protocol"], b["protocol"])
             elif a["version"] != b["version"]:
-                retun a["version"] cmp b["version"]
+                return cmp(a["version"], b["version"])
             else:
-                retun a["host"] cmp b["host"]
+                return comp(a["host"], b["host"])
 
         publications.sort(compare)
 
         return publications
 
     @require_auth
+    @require_kube
     def get(self):
 
-        publications = []
-
-        if kube():
-
-            publications = self.query(flask.request.args)
-                        
-        return {self.plural: publications}
-
+        return {self.plural: self.query(flask.request.args)}

@@ -1,5 +1,17 @@
 window.DRApp = new DoTRoute.Application();
 
+DRApp.YAML = function (value) {
+    if (typeof value === 'object' && value.constructor === Array) {
+        var sections = [];
+        for (var index = 0; index < value.length; index++) {
+            sections.push(jsyaml.dump(value[index]));
+        }
+        return sections.join("---\n");
+    } else {
+        return jsyaml.dump(value);
+    }
+}
+
 DRApp.load = function (name) {
     return $.ajax({url: name + ".html", async: false}).responseText;
 }
@@ -230,6 +242,7 @@ DRApp.controller("Base",null,{
             $("#from_url").hide();
             $("#from_github").show();
         }
+        $("#apps_action").show();
     },
     apps_source: function() {
         var from = $("input[name='from']:checked").val();
@@ -248,12 +261,8 @@ DRApp.controller("Base",null,{
         }
         return source;
     },
-    apps_preview: function() {
-        this.it.message = this.rest("POST","/api/app", {source: this.apps_source()}).message;
-        this.application.refresh();
-    },
-    apps_install: function() {
-        this.it.message = this.rest("POST","/api/app", {source: this.apps_source(), status: "Install"}).message;
+    apps_action: function(action) {
+        this.it.message = this.rest("POST","/api/app", {source: this.apps_source(), action: action}).message;
         this.application.refresh();
     },
     app: function() {
@@ -281,15 +290,15 @@ DRApp.controller("Base",null,{
         }
         this.application.refresh();
     },
-    app_install() {
-        this.rest("POST","/api/app/" + this.it.app.name);
-        this.application.refresh();
-    },
-    app_uninstall() {
-        if (confirm("Are you sure you want to uninstall " + this.it.app.name + "?")) {
-            this.rest("DELETE","/api/app/" + this.it.app.name);
+    app_action(name, action) {
+        if (action != "Uninstall" || confirm("Are you sure you want to uninstall " + name + "?")) {
+            this.rest("PATCH","/api/app/" + name, {action: action});
             this.application.refresh();
         }
+    },
+    app_delete(name) {
+        this.rest("DELETE","/api/app/" + name);
+        this.application.go('apps');
     }
 });
 
