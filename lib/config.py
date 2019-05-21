@@ -485,149 +485,54 @@ class Daemon(object):
 
     def source(self, obj):
 
-        if "subscribe" in obj["spec"]:
+        if "requires" in obj["spec"]:
 
-            for subscribe in obj["spec"]["subscribe"]:
+            for requirement in obj["spec"]["requires"]:
 
-                print "sourcing %s" % subscribe
+                print "sourcing %s" % requirement
 
-                app = self.app(subscribe["source"], obj["action"])
+                app = self.app(requirement, obj["action"])
 
                 print "sourced %s %s" % (app["metadata"]["name"], app["spec"]["source"])
 
-    def subscribe(self, obj):
+    def satisfy(self, obj):
 
-        subscribed = True
+        satisfied = True
 
-        if "subscribe" in obj["spec"]:
+        if "requires" in obj["spec"]:
 
-            obj["subscriptions"] = []
+            for requirement in obj["spec"]["requires"]:
 
-            for subscribe in obj["spec"]["subscribe"]:
+                print "satisfying %s" % requirement
 
-                print "subscribing %s" % subscribe
-
-                app = self.app(subscribe["source"], obj["action"])
+                app = self.app(requirement, obj["action"])
 
                 if app["status"] != "Installed":
 
-                    subscribed = False
+                    satisfied = False
 
                     if obj["action"] == "Install" and app["status"] != "Error":
                         app["action"] = "Install"
                         pykube.App(self.kube, app).replace()
 
-                subscription = {
-                    "name": subscribe["name"],
-                    "app": app["metadata"]["name"],
-                    "project": subscribe["project"]
-                }
-
-                print "subscribed %s" % subscription
-
-                obj["subscriptions"].append(subscription)
-
-        return subscribed
-
-    def project(self, obj):
-
-        if "subscriptions" not in obj:
-            return
-
-        for subscription in obj["subscriptions"]:
-
-            if "project" not in subscription:
-                continue
-
-            project = subscription["project"]
-
-            print "projecting %s" % project
-
-            app = pykube.App.objects(self.kube).filter().get(name=subscription["app"]).obj
-
-            for publication in app["publications"]:
-
-                if publication["name"] == project["publication"]:
-
-                    encoding = project.get("encoding", "yaml")
-                    key = project.get("key", "%s.%s" % (subscription["name"], encoding))
-
-                    config = pykube.ConfigMap.objects(self.kube).filter(namespace=project["namespace"]).get(name=project["name"]).obj
-
-                    if "data" not in config:
-                        config["data"] = {}
-
-                    if encoding == "json":
-                        config["data"][key] = json.dumps(publication, indent=2)
-                    else:
-                        config["data"][key] = yaml.safe_dump(publication, default_flow_style=False)
-
-                    pykube.ConfigMap(self.kube, config).replace()
-
-                    break
-
-    def publish(self, obj):
-
-        if "publish" not in obj["spec"]:
-            return
-
-        obj["publications"] = []
-
-        for spec in obj["spec"]["publish"]:
-
-            print "publishing %s" % spec
-
-            publication = {}
-
-            for field in spec:
-
-                if field == "service":
-
-                    service = pykube.Service.objects(self.kube).filter(
-                        namespace=spec["service"]["namespace"]
-                    ).get(name=spec["service"]["name"]).obj
-
-                    publication["host"] = "%s.%s" % (service["metadata"]["name"], service["metadata"]["namespace"])
-
-                    if "port" in spec["service"]:
-                        for port in service["spec"]["ports"]:
-                            if "name" in port and port["name"] == spec["service"]["port"]:
-                                publication["port"] = port["port"]
-
-                    if service["spec"]["type"] == "LoadBalancer":
-                        publication["ingress"] = True
-
-                else:
-
-                    publication[field] = spec[field]
-
-            print "published %s" % publication
-
-            obj["publications"].append(publication)
+        return satisfied
 
     def url(self, obj):
 
-        if "url" not in obj["spec"] or "publications" not in obj:
+        if "url" not in obj["spec"]:
             return
 
         print "creating url %s " % obj["spec"]["url"]
 
-        for publication in obj["publications"]:
+        obj["url"] = "%s://%s.%s.local" % (obj["spec"]["url"]["protocol"], obj["spec"]["url"]["host"], self.node)
 
-            if obj["spec"]["url"]["publication"] == publication["name"]:
+        if "port" in obj["spec"]["url"]:
+            obj["url"] = "%s:%s" % (obj["url"], obj["spec"]["url"]["port"]) 
 
-                obj["url"] = "%s://%s.%s.local" % (publication["protocol"], publication["host"], self.node)
+        if "path" in obj["spec"]["url"]:
+            obj["url"] = "%s/%s" % (obj["url"], obj["path"])
 
-                if (
-                    publication["protocol"] == "http" and publication["port"] != 80 or 
-                    publication["protocol"] == "https" and publication["port"] != 443
-                ):
-                    obj["url"] = "%s:%s" % (obj["url"], obj["port"])
-
-                if "path" in obj["spec"]["url"]:
-                    obj["url"] = "%s/%s" % (obj["url"], obj["path"])
-
-                print "created url %s " % obj["url"]
+        print "created url %s " % obj["url"]
 
     def apps(self):
 
@@ -646,7 +551,7 @@ class Daemon(object):
                     self.source(obj)
                     obj["status"] = "Downloaded"
 
-                if obj["action"] == "Install" and obj["status"] not in ["Installed", "Error"] and self.subscribe(obj):
+                if obj["action"] == "Install" and obj["status"] not in ["Installed", "Error"] and self.satisfy(obj):
 
                     print "installing %s" % self.display(obj)
                     for resource in obj["resources"]:
@@ -658,8 +563,6 @@ class Daemon(object):
                             Resource(self.kube, resource).delete()
                             Resource(self.kube, resource).create()
 
-                    self.project(obj)
-                    self.publish(obj)
                     self.url(obj)
 
                     obj["status"] = "Installed"
@@ -667,13 +570,11 @@ class Daemon(object):
                 elif obj["status"] == "Installed" and obj["action"] == "Uninstall":
 
                     print "uninstalling %s" % self.display(obj)
+
                     for resource in reversed(obj["resources"]):
                         print "deleting %s" % self.display(resource)
                         getattr(pykube, resource["kind"])(self.kube, resource).delete()
-                    if "subscriptions" in obj:
-                        del obj["subscriptions"]
-                    if "publications" in obj:
-                        del obj["publications"]
+
                     if "url" in obj:
                         del obj["url"]
 
