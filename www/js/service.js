@@ -1,5 +1,17 @@
 window.DRApp = new DoTRoute.Application();
 
+DRApp.YAML = function (value) {
+    if (typeof value === 'object' && value.constructor === Array) {
+        var sections = [];
+        for (var index = 0; index < value.length; index++) {
+            sections.push(jsyaml.dump(value[index]));
+        }
+        return sections.join("---\n");
+    } else {
+        return jsyaml.dump(value);
+    }
+}
+
 DRApp.load = function (name) {
     return $.ajax({url: name + ".html", async: false}).responseText;
 }
@@ -49,13 +61,13 @@ DRApp.controller("Base",null,{
             type: type,
             url: url,
             contentType: "application/json",
-            headers: {'klot-io-password': DRApp.password},
+            headers: {'x-klot-io-password': DRApp.password},
             data: (data === null) ? null : JSON.stringify(data),
             dataType: "json",
             async: false
         });
         if ((response.status != 200) && (response.status != 201) && (response.status != 202)) {
-            alert(type + ": " + url + " failed");
+            alert(type + ": " + url + " failed\n" + response.responseText);
             throw (type + ": " + url + " failed");
         }
         return response.responseJSON;
@@ -90,7 +102,7 @@ DRApp.controller("Base",null,{
         this.application.render(this.it);
     },
     password_enter: function(event) {
-        if(e.keyCode === 13){
+        if(event.keyCode === 13){
             event.preventDefault();
             this.password();
         }
@@ -220,7 +232,7 @@ DRApp.controller("Base",null,{
         this.application.render(this.it);
         this.start();
     },
-    preview_change: function() {
+    apps_change: function() {
         this.stop();
         var from = $("input[name='from']:checked").val();
         if (from == "url") {
@@ -230,8 +242,9 @@ DRApp.controller("Base",null,{
             $("#from_url").hide();
             $("#from_github").show();
         }
+        $("#apps_action").show();
     },
-    app_preview: function() {
+    apps_source: function() {
         var from = $("input[name='from']:checked").val();
         var source = {};
         if (from == "url") {
@@ -246,7 +259,10 @@ DRApp.controller("Base",null,{
                 source["path"] = $("#path").val()
             }
         }
-        this.it.message = this.rest("POST","/api/app", {source: source}).message;
+        return source;
+    },
+    apps_action: function(action) {
+        this.it.message = this.rest("POST","/api/app", {source: this.apps_source(), action: action}).message;
         this.application.refresh();
     },
     app: function() {
@@ -274,15 +290,15 @@ DRApp.controller("Base",null,{
         }
         this.application.refresh();
     },
-    app_install() {
-        this.rest("POST","/api/app/" + this.it.app.name);
-        this.application.refresh();
-    },
-    app_uninstall() {
-        if (confirm("Are you sure you want to uninstall " + this.it.app.name + "?")) {
-            this.rest("DELETE","/api/app/" + this.it.app.name);
+    app_action(name, action) {
+        if (action != "Uninstall" || confirm("Are you sure you want to uninstall " + name + "?")) {
+            this.rest("PATCH","/api/app/" + name, {action: action});
             this.application.refresh();
         }
+    },
+    app_delete(name) {
+        this.rest("DELETE","/api/app/" + name);
+        this.application.go('apps');
     }
 });
 
