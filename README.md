@@ -352,6 +352,12 @@ This will copy the SD image to the images/ directory as pi-(version>).img with (
 make shrink
 ```
 
+## zip teh image up
+
+```
+make zip
+```
+
 This will shrink down images/pi-(version>).img to a more manageable size. 
 
 # Console

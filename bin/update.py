@@ -13,7 +13,7 @@ if not clusters:
 if len(clusters) == 1:
     cluster = clusters[0]
 else:
-    cluster = input(f"cluster: [{', ',join(clusters)}]")
+    cluster = input(f"cluster: [{', '.join(clusters)}]")
 
 with open(f"clusters/{cluster}.yaml", "r") as cluster_file:
     config = yaml.safe_load(cluster_file)

@@ -56,10 +56,10 @@ def require_auth(endpoint):
         with open("/opt/klot-io/config/account.yaml", "r") as config_file:
             password = yaml.safe_load(config_file)["password"]
 
-        if "klot-io-password" not in flask.request.headers:
+        if "x-klot-io-password" not in flask.request.headers:
             return {"error": "missing password"}, 400
 
-        if flask.request.headers["klot-io-password"] != password:
+        if flask.request.headers["x-klot-io-password"] != password:
             return {"error": "invalid password"}, 401
 
         return endpoint(*args, **kwargs)
@@ -420,7 +420,7 @@ class Node(flask_restful.Resource):
 
         response = requests.post(
             "http://klot-io.local/api/config",
-            headers={"klot-io-password": "kloudofthings"},
+            headers={"x-klot-io-password": "kloudofthings"},
             json={"config": config}
         )
 
@@ -441,7 +441,7 @@ class Node(flask_restful.Resource):
 
             response = requests.post(
                 "http://%s.local/api/config" % flask.request.json[self.name],
-                headers={"klot-io-password": config["account"]["password"]},
+                headers={"x-klot-io-password": config["account"]["password"]},
                 json={"config": config}
             )
 

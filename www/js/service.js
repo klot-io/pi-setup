@@ -61,13 +61,13 @@ DRApp.controller("Base",null,{
             type: type,
             url: url,
             contentType: "application/json",
-            headers: {'klot-io-password': DRApp.password},
+            headers: {'x-klot-io-password': DRApp.password},
             data: (data === null) ? null : JSON.stringify(data),
             dataType: "json",
             async: false
         });
         if ((response.status != 200) && (response.status != 201) && (response.status != 202)) {
-            alert(type + ": " + url + " failed");
+            alert(type + ": " + url + " failed\n" + response.responseText);
             throw (type + ": " + url + " failed");
         }
         return response.responseJSON;
@@ -102,7 +102,7 @@ DRApp.controller("Base",null,{
         this.application.render(this.it);
     },
     password_enter: function(event) {
-        if(e.keyCode === 13){
+        if(event.keyCode === 13){
             event.preventDefault();
             this.password();
         }

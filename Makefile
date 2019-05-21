@@ -10,12 +10,13 @@ VOLUMES=-v ${PWD}/boot_requirements.txt:/opt/klot-io/requirements.txt \
         -v ${PWD}/kubernetes/:/opt/klot-io/kubernetes/ \
         -v ${PWD}/service/:/opt/klot-io/service/ \
         -v ${PWD}/images/:/opt/klot-io/images/ \
+		-v ${PWD}/secret/:/opt/klot-io/secret/ \
 		-v ${PWD}/clusters/:/opt/klot-io/clusters/
 PORT=8083
 KLOTIO_HOST?=klot-io.local
 
 
-.PHONY: cross build shell boot cluster update export shrink config clean kubectl
+.PHONY: cross build shell boot cluster update export shrink zip config clean kubectl
 
 cross:
 	docker run --rm --privileged multiarch/qemu-user-static:register --reset
@@ -41,6 +42,10 @@ export:
 shrink:
 	docker build . -f Dockerfile.shrink -t $(ACCOUNT)/$(IMAGE)-shrink:$(VERSION)
 	docker run --privileged=true -it --rm $(VOLUMES) $(ACCOUNT)/$(IMAGE)-shrink:$(VERSION) sh -c "pishrink.sh images/pi-$(VERSION).img"
+
+zip:
+	rm -f images/pi-$(VERSION).img.zip
+	zip -9 images/pi-$(VERSION).img.zip images/pi-$(VERSION).img
 
 config:
 	cp config/*.yaml /Volumes/boot/klot-io/config/

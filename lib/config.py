@@ -355,7 +355,7 @@ class Daemon(object):
 
             config = requests.get(
                 'http://%s-klot-io.local/api/kubectl' % self.config["kubernetes"]["cluster"],
-                headers={"klot-io-password": self.config["account"]['password']},
+                headers={"x-klot-io-password": self.config["account"]['password']},
             ).json()["kubectl"]
 
         self.execute("mkdir -p /home/pi/.kube")
