@@ -16,6 +16,7 @@ echo "installing klot-io requirements"
 sudo apt-get install -y python-pip gcc python-dev libsystemd-dev python-avahi
 sudo mkdir -p /opt/klot-io/
 sudo cp /boot/klot-io/requirements.txt /opt/klot-io/requirements.txt
+sudo pip install requests==2.21
 sudo pip install -r /opt/klot-io/requirements.txt
 sudo mkdir -p /opt/klot-io/lib/
 sudo mkdir -p /opt/klot-io/bin/

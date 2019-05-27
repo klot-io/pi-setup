@@ -16,7 +16,7 @@ PORT=8083
 KLOTIO_HOST?=klot-io.local
 
 
-.PHONY: cross build shell boot cluster update export shrink zip config clean kubectl
+.PHONY: cross build shell boot cluster update export shrink zip config clean kubectl tag
 
 cross:
 	docker run --rm --privileged multiarch/qemu-user-static:register --reset
@@ -45,7 +45,7 @@ shrink:
 
 zip:
 	rm -f images/pi-$(VERSION).img.zip
-	zip -9 images/pi-$(VERSION).img.zip images/pi-$(VERSION).img
+	zip -9v images/pi-$(VERSION).img.zip images/pi-$(VERSION).img
 
 config:
 	cp config/*.yaml /Volumes/boot/klot-io/config/
@@ -67,3 +67,6 @@ endif
 	docker run -it $(VARIABLES) $(VOLUMES) $(ACCOUNT)/$(IMAGE)-setup:$(VERSION) bin/kubectl.py
 	mv secret/kubectl ~/.kube/config
 
+tag:
+	-git tag -a "v$(VERSION)" -m "Version $(VERSION)"
+	git push origin --tags

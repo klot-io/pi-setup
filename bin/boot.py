@@ -50,6 +50,7 @@ local.replace("config.txt", [
     ("#hdmi_mode=1", "hdmi_mode=68")
 ])
 local.append("config.txt", "enable_uart=1")
+local.append("config.txt", "max_usb_current=1")
 local.options("cmdline.txt", [
     'cgroup_enable=cpuset',
     'cgroup_enable=memory',
