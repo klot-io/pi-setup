@@ -272,7 +272,7 @@ Make sure you're on the same network as the Pi will be.
 On Mac:
 
 ```
-# Burn the image first then
+# Burn the latest raspbian image first then, pop it out and back in, then
 make build
 make boot
 ```
@@ -325,7 +325,7 @@ cd /boot/klot-io/bin
 ./images.sh
 ```
 
-## install clout-io services
+## install klot-io services
 
 ```
 cd /boot/klot-io/bin
