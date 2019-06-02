@@ -63,13 +63,11 @@ Put the cards in the Pi's and boot up.  After a few minutes, go to http://<clust
 
 Once you have a master node and a few workers, head over to Apps.
 
-
-
 # Kubectl
 
 To integrate this new Kubernetes Cluster with your local kubectl, `make kubectl`.
 
-It'll ask you for the cluster and password. It'll create a context for this cluster (clsuter-klot-io). 
+It'll ask you for the cluster and password. It'll create a context for this cluster (cluster-klot-io). 
 
 If you have an existing `~/.kube/config` it'll merge else it'll just create a new ~/.kube/config file. 
 
