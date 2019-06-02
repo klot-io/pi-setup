@@ -489,7 +489,6 @@ class App(flask_restful.Resource):
         app = {
             "name": obj["metadata"]["name"],
             "description": obj["metadata"]["description"],
-            "labels": obj["spec"]["labels"],
             "action": "Download",
             "status": "Discovered"
         }
@@ -499,6 +498,9 @@ class App(flask_restful.Resource):
 
         if "action" in obj:
             app["action"] = obj["action"]
+
+        if "labels" in obj:
+            app["labels"] = obj["labels"]
 
         if "url" in obj:
             app["url"] = obj["url"]
