@@ -1,0 +1,15 @@
+{{#def.Header}}
+<div class="uk-overflow-container">
+    <h2>Pod</h2>
+    {{ var containers = Object.keys(it.log); containers.sort(); }}
+    {{ var current = DRApp.current.query.container || containers[0]; }}
+    <ul class="uk-tab data-uk-tab">
+        {{~containers :container}}
+        <li {{?current == container}}class="uk-active"{{?}}>
+            <a href="{{=DRApp.link('pod', DRApp.current.path.pod, {container: container})}}">{{=container}}</a>
+        </li>
+        {{~}}
+    </ul>
+    <pre>{{=it.log[current]}}</pre>
+</div>
+{{#def.Footer}}

@@ -126,6 +126,20 @@ DRApp.controller("Base",null,{
         this.application.render(this.it);
         this.start();
     },
+    events: function() {
+        this.loading();
+        this.update_status();
+        this.it = {
+            namespaces: this.rest("GET","/api/namespace").namespaces
+        };
+        if (this.application.current.query.namespace) {
+            this.it.events = this.rest("GET","/api/event?namespace=" + this.application.current.query.namespace).events;
+        } else {
+            this.it.events = this.rest("GET","/api/event").events;
+        }
+        this.application.render(this.it);
+        this.start();
+    },
     config: function() {
         this.update_status();
         this.it = {
@@ -198,8 +212,7 @@ DRApp.controller("Base",null,{
         this.loading();
         this.update_status();
         this.it = {
-            nodes: this.rest("GET","/api/node").nodes,
-            labels: this.rest("GET","/api/label").labels
+            nodes: this.rest("GET","/api/node").nodes
         }
         this.application.render(this.it);
         this.start();
@@ -223,11 +236,21 @@ DRApp.controller("Base",null,{
         this.application.render(this.it);
         this.start();
     },
+    pod: function() {
+        this.loading();
+        this.update_status();
+        this.it = {
+            log: this.rest("GET","/api/pod/" + this.application.current.path.pod).log
+        };
+        this.application.render(this.it);
+        this.start();
+    },
     apps: function() {
         this.loading();
         this.update_status();
         this.it = {
-            apps: this.rest("GET","/api/app").apps
+            apps: this.rest("GET","/api/app").apps,
+            nodes: this.rest("GET","/api/node").nodes
         }
         this.application.render(this.it);
         this.start();
@@ -298,7 +321,11 @@ DRApp.controller("Base",null,{
     },
     app_delete(name) {
         this.rest("DELETE","/api/app/" + name);
-        this.application.go('apps');
+        if (this.application.current.path.app_name) {
+            this.application.go('apps');
+        } else {
+            this.application.refresh();
+        }
     }
 });
 
@@ -308,9 +335,11 @@ DRApp.partial("Footer",DRApp.load("footer"));
 DRApp.template("Home",DRApp.load("home"),null,DRApp.partials);
 DRApp.template("Login",DRApp.load("login"),null,DRApp.partials);
 DRApp.template("Logs",DRApp.load("logs"),null,DRApp.partials);
+DRApp.template("Events",DRApp.load("events"),null,DRApp.partials);
 DRApp.template("Config",DRApp.load("config"),null,DRApp.partials);
 DRApp.template("Status",DRApp.load("status"),null,DRApp.partials);
 DRApp.template("Pods",DRApp.load("pods"),null,DRApp.partials);
+DRApp.template("Pod",DRApp.load("pod"),null,DRApp.partials);
 DRApp.template("Nodes",DRApp.load("nodes"),null,DRApp.partials);
 DRApp.template("Apps",DRApp.load("apps"),null,DRApp.partials);
 DRApp.template("App",DRApp.load("app"),null,DRApp.partials);
@@ -319,9 +348,11 @@ DRApp.route("home","/","Home","Base", "home")
 DRApp.route("login","/login","Login","Base", "login")
 DRApp.route("logout","/logout","Login","Base", "logout")
 DRApp.route("logs","/log/{service}","Logs","Base", "logs", "stop")
+DRApp.route("events","/event","Events","Base", "events", "stop")
 DRApp.route("config","/config","Config","Base","config", "stop");
 DRApp.route("status","/status","Status","Base","status", "stop");
 DRApp.route("pods","/pod","Pods","Base","pods", "stop");
+DRApp.route("pod","/pod/{pod}","Pod","Base","pod", "stop");
 DRApp.route("nodes","/node","Nodes","Base","nodes", "stop");
 DRApp.route("apps","/app","Apps","Base","apps", "stop");
 DRApp.route("app","/app/{app_name}","App","Base","app", "stop");

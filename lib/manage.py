@@ -27,7 +27,10 @@ def app():
     api.add_resource(Status, '/status')
     api.add_resource(Kubectl, '/kubectl')
     api.add_resource(Node, '/node')
+    api.add_resource(Namespace, '/namespace')
+    api.add_resource(Event, '/event')
     api.add_resource(Pod, '/pod')
+    api.add_resource(PodLog, '/pod/<string:pod>')
     api.add_resource(AppLP, '/app')
     api.add_resource(AppRIU, '/app/<string:name>')
     api.add_resource(Label, '/label')
@@ -349,28 +352,10 @@ class Node(flask_restful.Resource):
 
     name = "node"
 
-    def uninitialized(self):
-
-        try:
-
-            socket.gethostbyname('klot-io.local')
-            return True
-
-        except:
-
-            return False
-
     @require_auth
     def get(self):
 
         nodes = []
-
-        if self.uninitialized():
-            nodes.append({
-                "name": "klot-io",
-                "status": "Uninitialized",
-                "role": None
-            })
 
         if kube():
 
@@ -383,6 +368,9 @@ class Node(flask_restful.Resource):
                     "name": obj["metadata"]["name"],
                     "status": "NotReady"
                 }
+
+                if "labels" in obj["metadata"]:
+                    node["labels"] = obj["metadata"]["labels"]
 
                 for condition in obj["status"]["conditions"]:
                     if condition["type"] == "Ready" and condition["status"] == "True":
@@ -398,6 +386,14 @@ class Node(flask_restful.Resource):
             nodes.append(master)
 
             nodes.extend(sorted(workers, key=lambda node: node["name"]))
+
+        else: 
+
+            nodes.append({
+                "name": "klot-io",
+                "status": "Uninitialized",
+                "role": None
+            })
 
         return {"nodes": nodes}
 
@@ -451,6 +447,50 @@ class Node(flask_restful.Resource):
 
             return {"error": "node not found"}, 404
 
+
+class Namespace(flask_restful.Resource):
+
+    @require_auth
+    @require_kube
+    def get(self):
+
+        namespaces = []
+
+        for obj in [namespace.obj for namespace in pykube.Namespace.objects(kube()).filter()]:
+
+            namespaces.append(obj["metadata"]["name"])
+
+        return {"namespaces": sorted(namespaces)}
+
+
+class Event(flask_restful.Resource):
+
+    @require_auth
+    @require_kube
+    def get(self):
+
+        events = []
+
+        namespace = flask.request.args["namespace"] if "namespace" in flask.request.args else pykube.all
+
+        for obj in [event.obj for event in pykube.Event.objects(kube()).filter(namespace=namespace)]:
+
+            event = {
+                "kind": obj["involvedObject"]["kind"],
+                "name": obj["involvedObject"]["name"],
+                "reason": obj["reason"],
+                "message": obj["message"],
+                "timestamp": obj["lastTimestamp"]
+            }
+
+            if "namespace" in obj["involvedObject"]:
+                event["namespace"] = obj["involvedObject"]["namespace"]
+
+            events.append(event)
+
+        return {"events": sorted(events, key=lambda event: event["timestamp"])}
+
+
 class Pod(flask_restful.Resource):
 
     @require_auth
@@ -467,7 +507,8 @@ class Pod(flask_restful.Resource):
                 "namespace": obj["metadata"]["namespace"],
                 "name": obj["metadata"]["name"],
                 "status": obj["status"]["phase"],
-                "node": None
+                "node": None,
+                "containers": [container["name"] for container in obj["spec"]["containers"]]
             }
 
             if "nodeName" in obj["spec"]:
@@ -475,7 +516,36 @@ class Pod(flask_restful.Resource):
 
             pods.append(pod)
 
-        return {"pods": sorted(pods, key=lambda pod: pod["name"])}
+        return {"pods": sorted(pods, key=lambda pod: (pod["namespace"], pod["name"]))}
+
+
+class PodLog(flask_restful.Resource):
+
+    @require_auth
+    @require_kube
+    def get(self, pod):
+
+        (namespace, name) = pod.split('.')
+
+        pod = pykube.Pod.objects(kube()).filter(namespace=namespace).get(name=name)
+
+        containers = [container["name"] for container in pod.obj["spec"]["containers"]]
+
+        params = {
+            "timestamps": True,
+            "tail_lines": 100
+        }
+
+        if "tail_lines" in flask.request.args:
+            params["tail_lines"] = flask.request.args["tail_lines"]
+
+        log = {}
+
+        for container in containers:
+            params["container"] = container
+            log[container] = pykube.Pod.objects(kube()).filter(namespace=namespace).get(name=name).logs(**params)
+
+        return {"log": log}
 
 
 class App(flask_restful.Resource):
@@ -488,6 +558,7 @@ class App(flask_restful.Resource):
 
         app = {
             "name": obj["metadata"]["name"],
+            "namespace": obj["spec"]["namespace"],
             "description": obj["metadata"]["description"],
             "action": "Download",
             "status": "Discovered"
@@ -499,8 +570,8 @@ class App(flask_restful.Resource):
         if "action" in obj:
             app["action"] = obj["action"]
 
-        if "labels" in obj:
-            app["labels"] = obj["labels"]
+        if "labels" in obj["spec"]:
+            app["labels"] = obj["spec"]["labels"]
 
         if "url" in obj:
             app["url"] = obj["url"]
@@ -510,20 +581,11 @@ class App(flask_restful.Resource):
             if "error" in obj:
                 app["error"] = obj["error"]
 
+            if "source" in obj["spec"]:
+                app["source"] = obj["spec"]["source"]
+
             if "resources" in obj:
                 app["resources"] = obj["resources"]
-
-            if "subscribe" in obj["spec"]:
-                app["subscribe"] = obj["spec"]["subscribe"]
-
-            if "publish" in obj["spec"]:
-                app["publish"] = obj["spec"]["publish"]
-
-            if "subscriptions" in obj:
-                app["subscriptions"] = obj["subscriptions"]
-
-            if "publications" in obj:
-                app["publications"] = obj["publications"]
 
         return app
 
@@ -672,7 +734,7 @@ class Label(flask_restful.Resource):
                             obj["metadata"]["labels"][node_label] == app_label["value"]
                         ):
                             app_label["nodes"].append(obj["metadata"]["name"])
-                        
+
         return {self.plural: sorted(labels, key=lambda label: "%s/%s=%s" % (label["app"], label["name"], label["value"]))}
 
     @require_auth

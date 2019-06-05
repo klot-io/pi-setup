@@ -1,0 +1,39 @@
+{{#def.Header}}
+<div class="uk-overflow-container">
+    <h2>Events</h2>
+    <ul class="uk-tab data-uk-tab">
+        <li {{?!DRApp.current.query.namespace}}class="uk-active"{{?}}>
+            <a href="{{=DRApp.link('events')}}">all</a>
+        </li>
+        {{~it.namespaces :namespace}}
+        <li {{?DRApp.current.query.namespace == namespace}}class="uk-active"{{?}}>
+            <a href="{{=DRApp.link('events', {namespace: namespace})}}">{{=namespace}}</a>
+        </li>
+        {{~}}
+    </ul>
+    <table class="uk-table">
+        <thead>
+            <tr>
+                <th>Kind</th>
+                <th>Namespace</th>
+                <th>Name</th>
+                <th>Reason</th>
+                <th>Message</th>
+                <th>Timestamp</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{~it.events :event}}
+            <tr>
+                <td>{{=event.kind}}</td>
+                <td>{{=event.namespace || ''}}</td>
+                <td>{{=event.name}}</td>
+                <td>{{=event.reason}}</td>
+                <td>{{=event.message}}</td>
+                <td>{{=event.timestamp}}</td>
+            </tr>
+            {{~}}
+        </tbody>
+    </table>
+</div>
+{{#def.Footer}}

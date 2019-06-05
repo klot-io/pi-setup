@@ -24,6 +24,8 @@ nodes.extend([f"{worker}-{cluster}-klot-io.local" for worker in config["workers"
 
 for node in nodes:
 
+    print(node)
+
     deploy = develop.Deploy(node, config["password"])
 
     deploy.update("klot-io-daemon", "lib/config.py")

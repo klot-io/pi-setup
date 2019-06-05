@@ -12,7 +12,7 @@
         </thead>
         <tbody>
             {{~it.pods :pod}}
-            <tr>
+            <tr  OnClick="DRApp.go('pod','{{!pod.namespace}}.{{!pod.name}}')">
                 <td>{{=pod.namespace}}</td>
                 <td>{{=pod.name}}</td>
                 <td>{{=pod.node || ''}}</td>

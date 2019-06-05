@@ -40,10 +40,9 @@
                     {{?}}
                 </td>
                 <td>
-                {{~it.labels :labe}}
-                {{?label.nodes.indexOf(node.name) > 1}}
-                    {{=label.app}}/{{=label.name}}={{=label.value}}<br/>
-                {{?}}
+                {{ var labels = Object.keys(node.labels); labels.sort(); }}
+                {{~labels :label}}
+                    {{=label}}{{?node.labels[label]}}={{=node.labels[label]}}{{?}}<br/>
                 {{~}}
                 </td>
             </tr>

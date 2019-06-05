@@ -375,7 +375,10 @@ class Daemon(object):
         if "resources" in obj:
             return
 
-        obj["resources"] = []
+        obj["resources"] = [{
+            "kind": "Namespace",
+            "metadata": {"name": obj["spec"]["namespace"]}
+        }]
 
         for manifest in obj["spec"]["manifests"]:
 
@@ -472,6 +475,7 @@ class Daemon(object):
 
         if (
             not isinstance(obj, dict) or obj["apiVersion"] != "klot.io/v1" or obj["kind"] != "App" or 
+            "spec" not in obj or "source" not in obj['spec'] or obj['spec']["source"] != source or
             "metadata" not in obj or "spec" not in obj or len(obj.keys()) != 4
         ):
             raise Exception("source %s has malformed App %s" % (source, obj))

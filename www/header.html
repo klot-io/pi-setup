@@ -17,6 +17,9 @@
             <li {{? DRApp.current.paths[0] == 'node' }}class="uk-active"{{?}}>
                 <a href="{{=DRApp.link('nodes')}}">Nodes</a>
             </li>
+            <li {{? DRApp.current.paths[0] == 'event' }}class="uk-active"{{?}}>
+                <a href="{{=DRApp.link('events')}}">Events</a>
+            </li>
             {{?}}
             {{? DRApp.STATUSES[DRApp.status] >= DRApp.STATUSES["Joined"] }}
             <li {{? DRApp.current.paths[0] == 'status' }}class="uk-active"{{?}}>
