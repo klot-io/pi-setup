@@ -1,6 +1,16 @@
 {{#def.Header}}
 <div class="uk-overflow-container">
     <h2>Pods</h2>
+    <ul class="uk-tab data-uk-tab">
+        <li {{?!DRApp.current.query.namespace}}class="uk-active"{{?}}>
+            <a href="{{=DRApp.link('pods')}}">all</a>
+        </li>
+        {{~it.namespaces :namespace}}
+        <li {{?DRApp.current.query.namespace == namespace}}class="uk-active"{{?}}>
+            <a href="{{=DRApp.link('pods', {namespace: namespace})}}">{{=namespace}}</a>
+        </li>
+        {{~}}
+    </ul>
     <table class="uk-table">
         <thead>
             <tr>

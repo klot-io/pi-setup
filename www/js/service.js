@@ -231,7 +231,17 @@ DRApp.controller("Base",null,{
         this.loading();
         this.update_status();
         this.it = {
+            namespaces: this.rest("GET","/api/namespace").namespaces,
             pods: this.rest("GET","/api/pod").pods
+        }
+
+        this.it = {
+            namespaces: this.rest("GET","/api/namespace").namespaces
+        };
+        if (this.application.current.query.namespace) {
+            this.it.pods = this.rest("GET","/api/pod?namespace=" + this.application.current.query.namespace).pods;
+        } else {
+            this.it.pods = this.rest("GET","/api/pod").pods;
         }
         this.application.render(this.it);
         this.start();
