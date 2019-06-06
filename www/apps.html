@@ -58,11 +58,11 @@
                             Install
                         </button>
                     {{?}}
-                    {{?app.status != "Installed"}}
+                    {{?app.status == "Error" || (app.status == "Downloaded" && app.action != "Install")}}
                         <button type="button" onClick="DRApp.current.controller.app_delete('{{!app.name}}');" class="uk-button uk-button-primary">
                             Delete
                         </button>
-                    {{?? app.action != "Uninstall" }}
+                    {{??app.action != "Uninstall" && app.status == "Installed"}}
                         {{?app.url}}
                             <a class="uk-button uk-button-primary" href="{{!app.url}}" target="{{!app.name}}">Open</a>
                         {{?}}
