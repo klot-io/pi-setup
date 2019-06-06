@@ -255,6 +255,12 @@ DRApp.controller("Base",null,{
         this.application.render(this.it);
         this.start();
     },
+    pod_delete(pod) {
+        if (confirm("Are you sure you want to delete " + pod + "?")) {
+            this.rest("DELETE","/api/pod/" + pod);
+            this.application.refresh();
+        }
+    },
     apps: function() {
         this.loading();
         this.update_status();

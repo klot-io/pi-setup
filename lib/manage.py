@@ -30,7 +30,7 @@ def app():
     api.add_resource(Namespace, '/namespace')
     api.add_resource(Event, '/event')
     api.add_resource(Pod, '/pod')
-    api.add_resource(PodLog, '/pod/<string:pod>')
+    api.add_resource(PodRD, '/pod/<string:pod>')
     api.add_resource(AppLP, '/app')
     api.add_resource(AppRIU, '/app/<string:name>')
     api.add_resource(Label, '/label')
@@ -519,7 +519,7 @@ class Pod(flask_restful.Resource):
         return {"pods": sorted(pods, key=lambda pod: (pod["namespace"], pod["name"]))}
 
 
-class PodLog(flask_restful.Resource):
+class PodRD(flask_restful.Resource):
 
     @require_auth
     @require_kube
@@ -546,6 +546,16 @@ class PodLog(flask_restful.Resource):
             log[container] = pykube.Pod.objects(kube()).filter(namespace=namespace).get(name=name).logs(**params)
 
         return {"log": log}
+
+    @require_auth
+    @require_kube
+    def delete(self, pod):
+
+        (namespace, name) = pod.split('.')
+
+        pod = pykube.Pod.objects(kube()).filter(namespace=namespace).get(name=name).delete()
+
+        return {"deleted": True}, 202
 
 
 class App(flask_restful.Resource):

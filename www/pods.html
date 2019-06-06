@@ -22,11 +22,19 @@
         </thead>
         <tbody>
             {{~it.pods :pod}}
-            <tr  OnClick="DRApp.go('pod','{{!pod.namespace}}.{{!pod.name}}')">
+            <tr>
                 <td>{{=pod.namespace}}</td>
                 <td>{{=pod.name}}</td>
                 <td>{{=pod.node || ''}}</td>
-                <td>{{=pod.status}}</td>
+                <td>
+                    {{=pod.status}}
+                    <button type="button" OnClick="DRApp.go('pod','{{!pod.namespace}}.{{!pod.name}}')" class="uk-button uk-button-primary">
+                        Logs
+                    </button>
+                    <button type="button" OnClick="DRApp.current.controller.pod_delete('{{!pod.namespace}}.{{!pod.name}}')" class="uk-button uk-button-primary">
+                        Delete
+                    </button>
+                </td>
             </tr>
             {{~}}
         </tbody>
