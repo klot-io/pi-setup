@@ -7,6 +7,7 @@ import requests
 import platform
 import calendar
 import functools
+import subprocess
 
 import flask
 import flask_restful
@@ -34,7 +35,6 @@ def app():
     api.add_resource(AppLP, '/app')
     api.add_resource(AppRIU, '/app/<string:name>')
     api.add_resource(Label, '/label')
-    api.add_resource(Publication, '/publication')
 
     return app
 
@@ -345,7 +345,11 @@ class Status(flask_restful.Resource):
                         elif status == "NotReady":
                             status = "Master"
 
-        return {"status": status}
+        load = float(subprocess.check_output("uptime").split("age: ")[-1].split(',')[0])
+        memory = subprocess.check_output("free").split("\n")[1].split()
+        free = float(memory[-1]) / float(memory[1])
+
+        return {"status": status, "load": load, "free": free}
 
 
 class Node(flask_restful.Resource):
@@ -368,6 +372,16 @@ class Node(flask_restful.Resource):
                     "name": obj["metadata"]["name"],
                     "status": "NotReady"
                 }
+
+                response = requests.get(
+                    "http://%s.local/api/status" % node["name"], timeout=5,
+                    headers={"x-klot-io-password": flask.request.headers["x-klot-io-password"]}
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    node["load"] = data["load"]
+                    node["free"] = data["free"]
 
                 if "labels" in obj["metadata"]:
                     node["labels"] = obj["metadata"]["labels"]
@@ -827,53 +841,3 @@ class Label(flask_restful.Resource):
         pykube.Node(kube(), obj).replace()
                         
         return {"message": "%s unlabeled %s/%s" % (label["node"], label["app"], label["name"])}
-
-class Publication(flask_restful.Resource):
-
-    plural = "publications"
-
-    @staticmethod
-    def query(selector=None):
-
-        if selector is None:
-            selector = {}
-
-        publications = []
-
-        for obj in [app.obj for app in pykube.App.objects(kube()).filter()]:
-
-            if "publications" not in obj:
-                continue
-
-            for publication in obj["publications"]:
-
-                match = True
-                for parameter in selector:
-                    if parameter not in publish or publish[parameter] != selector[parameter]:
-                        match = False
-
-                if not match:
-                    continue
-
-                publication.update({"app": obj["metadata"]["name"]})
-
-                publications.append(publication)
-
-        def compare(a, b):
-
-            if a["protocol"] != b["protocol"]:
-                return cmp(a["protocol"], b["protocol"])
-            elif a["version"] != b["version"]:
-                return cmp(a["version"], b["version"])
-            else:
-                return comp(a["host"], b["host"])
-
-        publications.sort(compare)
-
-        return publications
-
-    @require_auth
-    @require_kube
-    def get(self):
-
-        return {self.plural: self.query(flask.request.args)}

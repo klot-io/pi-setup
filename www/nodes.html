@@ -6,6 +6,8 @@
             <tr>
                 <th>Name</th>
                 <th>Status</th>
+                <th>Load</th>
+                <th>Free</th>
                 <th>Role</th>
                 <th>Labels</th>
             </tr>
@@ -21,6 +23,8 @@
                     {{?}}
                 </td>
                 <td>{{=node.status}}</td>
+                <td>{{=node.load || ''}}</td>
+                <td>{{=node.status ? Math.round(100*node.free) + '%' : ''}}</td>
                 <td>
                     {{?node.role}}
                         {{=node.role}}
