@@ -220,12 +220,14 @@ DRApp.controller("Base",null,{
     node_join: function() {
         this.loading();
         this.rest("POST","/api/node", {node: {name: $("#name").val()}})
-        this.application.go('node');
+        this.application.go('nodes');
     },
-    node_delete: function(node) {
-        this.loading();
-        this.rest("DELETE","/api/node", {node: node});
-        this.application.go('node');
+    node_reset: function(node) {
+        if (confirm("Are you sure you want to reset " + node + "?")) {
+            this.loading();
+            this.rest("DELETE","/api/node", {node: node});
+            this.application.go('nodes');
+        }
     },
     pods: function() {
         this.loading();

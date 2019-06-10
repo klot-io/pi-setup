@@ -342,9 +342,11 @@ class Status(flask_restful.Resource):
                         elif status == "NotReady":
                             status = "Master"
 
-        load = float(subprocess.check_output("uptime").split("age: ")[-1].split(',')[0])
-        memory = subprocess.check_output("free").split("\n")[1].split()
-        free = float(memory[-1]) / float(memory[1])
+        load = [float(value) for value in subprocess.check_output("uptime").split("age: ")[-1].split(', ')]
+        memory = subprocess.check_output("free").split("\n")[:-1]
+        titles = memory[0].split()
+        values = memory[1].split()[1:]
+        free = {title: int(values[index]) for index, title in enumerate(titles)}
 
         return {"status": status, "load": load, "free": free}
 
@@ -353,15 +355,18 @@ class Node(flask_restful.Resource):
 
     name = "node"
 
+    @staticmethod
+    def uninitialized():
+        return os.path.exists("/opt/klot-io/config/uninitialized")
+
     @require_auth
     def get(self):
 
         nodes = []
+        master = None
+        workers = []
 
         if kube():
-
-            master = None
-            workers = []
 
             for obj in [node.obj for node in pykube.Node.objects(kube()).filter()]:
 
@@ -396,9 +401,7 @@ class Node(flask_restful.Resource):
 
             nodes.append(master)
 
-            nodes.extend(sorted(workers, key=lambda node: node["name"]))
-
-        if os.path.exists("/opt/klot-io/config/uninitialized"):
+        if self.uninitialized():
 
             try:
 
@@ -430,13 +433,15 @@ class Node(flask_restful.Resource):
 
                 pass
 
+        nodes.extend(sorted(workers, key=lambda node: node["name"]))
+
         return {"nodes": nodes}
 
     @require_auth
     def post(self):
 
         if not self.uninitialized():
-            return {"error": "no uninitialized node found"}, 404
+            return {"error": "uninitialized node not found"}, 404
 
         if self.name not in flask.request.json:
             return {"error": "missing %s" % self.name}, 400
@@ -454,6 +459,14 @@ class Node(flask_restful.Resource):
             headers={"x-klot-io-password": "kloudofthings"},
             json={"config": config}
         )
+
+        if response.status_code != 202:
+
+            response = requests.post(
+                "http://klot-io.local/api/config",
+                headers={"x-klot-io-password": flask.request.headers["x-klot-io-password"]},
+                json={"config": config}
+            )
 
         return response.json(), response.status_code
 

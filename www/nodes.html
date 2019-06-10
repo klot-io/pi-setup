@@ -6,8 +6,8 @@
             <tr>
                 <th>Name</th>
                 <th>Status</th>
-                <th>Load</th>
-                <th>Free</th>
+                <th>CPU</th>
+                <th>Memory</th>
                 <th>Role</th>
                 <th>Labels</th>
             </tr>
@@ -23,31 +23,33 @@
                     {{?}}
                 </td>
                 <td>{{=node.status}}</td>
-                <td>{{=node.load || ''}}</td>
-                <td>{{=node.status ? Math.round(100*node.free) + '%' : ''}}</td>
+                <td>{{=node.load ? Math.round(100 * node.load[0] / 4.0) + '%' : ''}}</td>
+                <td>{{=node.free ? Math.round(100 * node.free.used / node.free.total) + '%' : ''}}</td>
                 <td>
                     {{?node.role}}
                         {{=node.role}}
                         {{?node.role == "worker"}}
-                        <button type="button" onClick="DRApp.current.controller.node_delete('{{=node.name}}');" class="uk-button uk-button-primary">
+                        <button type="button" onClick="DRApp.current.controller.node_reset('{{=node.name}}');" class="uk-button uk-button-primary">
                             Reset
                         </button>
                         {{?}}
-                    {{??}}
-                    <form class="uk-form"></form>
+                    {{??node.status == "Uninitialized"}}
+                    <form class="uk-form">
                         <button type="button" onClick="DRApp.current.controller.node_join();" class="uk-button uk-button-primary">
                             Join
                         </button>
                         as
-                        <input id="name" type="text" class="uk-form-width-small"/>
+                        <input id="name" type="text" placeholder="name" value="" class="uk-form-width-small"/>
                     </form>
                     {{?}}
                 </td>
                 <td>
+                {{?node.labels}}
                 {{ var labels = Object.keys(node.labels); labels.sort(); }}
                 {{~labels :label}}
                     {{=label}}{{?node.labels[label]}}={{=node.labels[label]}}{{?}}<br/>
                 {{~}}
+                {{?}}
                 </td>
             </tr>
             {{~}}
