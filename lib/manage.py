@@ -1,8 +1,5 @@
 import os
-import glob
 import yaml
-import socket
-import urlparse
 import requests
 import platform
 import calendar
@@ -401,13 +398,37 @@ class Node(flask_restful.Resource):
 
             nodes.extend(sorted(workers, key=lambda node: node["name"]))
 
-        else: 
+        if os.path.exists("/opt/klot-io/config/uninitialized"):
 
-            nodes.append({
-                "name": "klot-io",
-                "status": "Uninitialized",
-                "role": None
-            })
+            try:
+
+                response = requests.get(
+                    "http://klot-io.local/api/status", timeout=5,
+                    headers={"x-klot-io-password": 'kloudofthings'}
+                )
+
+                if response.status_code != 200:
+
+                    response = requests.get(
+                        "http://klot-io.local/api/status", timeout=5,
+                        headers={"x-klot-io-password": flask.request.headers["x-klot-io-password"]}
+                    )
+
+                if response.status_code == 200:
+
+                    data = response.json()
+
+                    nodes.append({
+                        "name": "klot-io",
+                        "status": data["status"],
+                        "role": None,
+                        "load": data["load"],
+                        "free": data["free"]
+                    })
+
+            except:
+
+                pass
 
         return {"nodes": nodes}
 

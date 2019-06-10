@@ -136,6 +136,26 @@ class Daemon(object):
 
         return expected != actual
 
+    def uninitialized(self):
+
+        expected = os.path.exists("/opt/klot-io/config/uninitialized")
+
+        try:
+
+            requests.get("http://klot-io.local/api/status", timeout=5)
+            actual = True
+
+        except:
+
+            actual = False
+
+        if expected and not actual:
+            print("uninitialized not found")
+            os.remove("/opt/klot-io/config/uninitialized")
+        elif not expected and actual:
+            print("uninitialized found")
+            open("/opt/klot-io/config/uninitialized", "w").close()
+
     # Stolen from https://gist.github.com/gdamjan/3168336
 
     TTL = 15
@@ -715,6 +735,7 @@ class Daemon(object):
 
         self.reload()
         self.load()
+        self.uninitialized()
 
         if "account" in self.modified:
             self.account()
