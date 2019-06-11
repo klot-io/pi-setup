@@ -350,13 +350,28 @@ This will copy the SD image to the images/ directory as pi-(version>).img with (
 make shrink
 ```
 
-## zip teh image up
+## zip the image up
 
 ```
 make zip
 ```
 
 This will shrink down images/pi-(version>).img to a more manageable size. 
+
+# Boot off SSD
+
+- Burn the image onto the SSD
+- `make config` (if you want)
+- Boot with the SSD attached (no SD card)
+- `sudo lsblk` to determine the partition (usually sda)
+- `sudo fdisk -l /dev/sda` and copy start of sda2
+- `sudo fdisk /dev/sda` to repartition
+- `p` to double check start
+- `d` and accept default to delete the 2 partition (it's ok)
+- `n` new primary (default), 2 (default) paste the start, and all the way to the end (default)
+- `w` to write (save the ext4 signature if it asks)
+- `sudo shutdown -r now` to reboot
+- `sudo resize2fs /dev/sda2` to resize
 
 # Console
 
