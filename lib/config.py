@@ -395,10 +395,7 @@ class Daemon(object):
         if "resources" in obj:
             return
 
-        obj["resources"] = [{
-            "kind": "Namespace",
-            "metadata": {"name": obj["spec"]["namespace"]}
-        }]
+        obj["resources"] = []
 
         for manifest in obj["spec"]["manifests"]:
 
