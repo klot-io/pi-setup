@@ -275,7 +275,7 @@ make build
 make boot
 ```
 
-Pop into Pi, connect serial cable, power on, and create a console.
+Eject, pop into Pi, connect serial cable, power on, and create a console.
 
 ## enable tmpfs
 
@@ -364,12 +364,11 @@ This will shrink down images/pi-(version>).img to a more manageable size.
 - `make config` (if you want)
 - Boot with the SSD attached (no SD card)
 - `sudo lsblk` to determine the partition (usually sda)
-- `sudo fdisk -l /dev/sda` and copy start of sda2
 - `sudo fdisk /dev/sda` to repartition
-- `p` to double check start
+- `p` to copy start of sda2
 - `d` and accept default to delete the 2 partition (it's ok)
-- `n` new primary (default), 2 (default) paste the start, and all the way to the end (default)
-- `w` to write (save the ext4 signature if it asks)
+- `n` new primary (default), 2 (default) paste the start, and all the way to the end (default), n to not remove signature
+- `w` to write 
 - `sudo shutdown -r now` to reboot
 - `sudo resize2fs /dev/sda2` to resize
 
