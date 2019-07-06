@@ -91,7 +91,7 @@ class Log(flask_restful.Resource):
 
         import systemd.journal
 
-        if service not in ["daemon", "api", "gui"]:
+        if service not in ["dns", "daemon", "api", "gui"]:
             return {"error": "invalid service: %s" % sevice}, 400
 
         reader = systemd.journal.Reader()
@@ -375,15 +375,21 @@ class Node(flask_restful.Resource):
                     "status": "NotReady"
                 }
 
-                response = requests.get(
-                    "http://%s.local/api/status" % node["name"], timeout=5,
-                    headers={"x-klot-io-password": flask.request.headers["x-klot-io-password"]}
-                )
+                try:
 
-                if response.status_code == 200:
-                    data = response.json()
-                    node["load"] = data["load"]
-                    node["free"] = data["free"]
+                    response = requests.get(
+                        "http://%s.local/api/status" % node["name"], timeout=5,
+                        headers={"x-klot-io-password": flask.request.headers["x-klot-io-password"]}
+                    )
+
+                    if response.status_code == 200:
+                        data = response.json()
+                        node["load"] = data["load"]
+                        node["free"] = data["free"]
+
+                except:
+
+                    pass
 
                 if "labels" in obj["metadata"]:
                     node["labels"] = obj["metadata"]["labels"]

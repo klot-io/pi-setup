@@ -31,6 +31,16 @@ sudo mkdir -p /opt/klot-io/kubernetes/
 sudo cp /boot/klot-io/kubernetes/kube-flannel.yml /opt/klot-io/kubernetes/
 sudo cp /boot/klot-io/kubernetes/klot-io-app-crd.yaml /opt/klot-io/kubernetes/
 
+echo "installing klot-io dns"
+sudo cp /boot/klot-io/lib/name.py /opt/klot-io/lib/
+sudo cp /boot/klot-io/bin/dns.py /opt/klot-io/bin/
+sudo cp /boot/klot-io/service/klot-io-dns.service /etc/systemd/system/
+
+echo "installing klot-io daemon"
+sudo cp /boot/klot-io/lib/config.py /opt/klot-io/lib/
+sudo cp /boot/klot-io/bin/daemon.py /opt/klot-io/bin/
+sudo cp /boot/klot-io/service/klot-io-daemon.service /etc/systemd/system/
+
 echo "installing klot-io api"
 sudo cp /boot/klot-io/lib/manage.py /opt/klot-io/lib/
 sudo cp /boot/klot-io/bin/api.py /opt/klot-io/bin/
@@ -42,31 +52,35 @@ sudo cp /boot/klot-io/etc/nginx.conf /etc/nginx/
 sudo cp /boot/klot-io/etc/rpi.conf /etc/nginx/sites-available/default
 sudo cp -r /boot/klot-io/www /opt/klot-io/www
 
-echo "installing klot-io daemon"
-sudo cp /boot/klot-io/lib/config.py /opt/klot-io/lib/
-sudo cp /boot/klot-io/bin/daemon.py /opt/klot-io/bin/
-sudo cp /boot/klot-io/service/klot-io-daemon.service /etc/systemd/system/
-
 echo "setting permissions"
 sudo chmod a+x -R /opt/klot-io/bin
 sudo chown -R 1000:1000 /opt/klot-io
 
-echo "starting api"
-sudo systemctl enable klot-io-api
-sudo systemctl start klot-io-api
-echo "hit http://klot-io.local:8083/health - hit return to continue"
-read API
-sudo journalctl -u klot-io-daemon
-
-echo "starting gui"
-sudo systemctl enable nginx
-sudo systemctl reload nginx
-echo "hit http://klot-io.local/ - hit return to continue"
-read GUI
-sudo journalctl -u nginx
+echo "starting dns"
+sudo systemctl enable klot-io-dns
+sudo systemctl start klot-io-dns
+sleep 5
+echo "verify DNS recursive pass thru - q to exit"
+host klot.io 127.0.0.1
+sudo journalctl -u klot-io-dns
 
 echo "starting daemon"
 sudo systemctl enable klot-io-daemon
 sudo systemctl start klot-io-daemon
-echo "verify password change and network change (if applicable) - ctrl-C to exit"
-sudo journalctl -u klot-io-daemon -f
+sleep 10
+echo "verify password change and network change (if applicable) - q to exit"
+sudo journalctl -u klot-io-daemon
+
+echo "starting api"
+sudo systemctl enable klot-io-api
+sudo systemctl start klot-io-api
+echo "hit http://klot-io.local:8083/health - hit return to continue - q to exit"
+read API
+sudo journalctl -u klot-io-api
+
+echo "starting gui"
+sudo systemctl enable nginx
+sudo systemctl reload nginx
+echo "hit http://klot-io.local/ - hit return to continue - q to exit"
+read GUI
+sudo journalctl -u nginx

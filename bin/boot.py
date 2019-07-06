@@ -24,6 +24,7 @@ local.copy("requirements.txt", "requirements.txt")
 local.directory("lib")
 local.copy("lib/manage.py")
 local.copy("lib/config.py")
+local.copy("lib/name.py")
 
 local.directory("etc")
 local.copy("etc/nginx.conf")
@@ -39,10 +40,12 @@ local.copy("bin/images.sh")
 local.copy("bin/klot-io.sh")
 local.copy("bin/api.py")
 local.copy("bin/daemon.py")
+local.copy("bin/dns.py")
 
 local.directory("service")
-local.copy("service/klot-io-daemon.service")
 local.copy("service/klot-io-api.service")
+local.copy("service/klot-io-daemon.service")
+local.copy("service/klot-io-dns.service")
 
 local.replace("config.txt", [
     ("#hdmi_force_hotplug=1", "hdmi_force_hotplug=1"),

@@ -1,10 +1,10 @@
 [Unit]
-Description=Klot I/O Manage API
+Description=Klot I/O Name DNS
 
 [Service]
 Environment=PYTHONUNBUFFERED=1
 Environment=PYTHONPATH=/opt/klot-io/lib
-ExecStart=/opt/klot-io/bin/api.py
+ExecStart=/opt/klot-io/bin/dns.py
 Restart=always
 
 [Install]
