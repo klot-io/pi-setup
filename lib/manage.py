@@ -622,6 +622,7 @@ class App(flask_restful.Resource):
 
         app = {
             "name": obj["metadata"]["name"],
+            "version": obj["metadata"]["version"],
             "namespace": obj["spec"]["namespace"],
             "description": obj["metadata"]["description"],
             "action": "Download",
@@ -671,9 +672,13 @@ class AppLP(App):
     @require_kube
     def post(self):
 
+        if "name" not in flask.request.json:
+            return {"error": "missing name"}, 400
+
         if "source" not in flask.request.json:
             return {"error": "missing source"}, 400
 
+        name = flask.request.json["name"]
         source = flask.request.json["source"]
 
         if "url" in source:
@@ -687,13 +692,17 @@ class AppLP(App):
 
             repo = source["repo"]
             version = source["version"] if "version" in source else "master"
-            path = source["path"] if "path" in source else "klot-io-app.yaml"
 
-            url = "https://raw.githubusercontent.com/%s/%s/%s" % (repo, version, path)
+            url = "https://raw.githubusercontent.com/%s/%s/" % (repo, version)
 
         else:
 
-            return {"error": "cannot preview %s" % source}, 400
+            return {"error": "need url or github %s" % source}, 400
+
+        if url.endswith("/"):
+
+            path = source["path"] if "path" in source else "klot-io-app.yaml"
+            url = "%s/%s" % (url, path)
 
         response = requests.get(url)
 
@@ -702,12 +711,28 @@ class AppLP(App):
 
         obj = yaml.safe_load(response.text)
 
-        if (
-            not isinstance(obj, dict) or obj["apiVersion"] != "klot.io/v1" or obj["kind"] != "App" or 
-            "spec" not in obj or "source" not in obj['spec'] or obj['spec']["source"] != source or
-            "metadata" not in obj or "spec" not in obj or len(obj.keys()) != 4
-        ):
-            return {"error": "%s produced malformed App %s" % (source, obj)}, 400
+        if not isinstance(obj, dict):
+            return {"error": "%s produced non dict %s" % (source, obj)}, 400
+
+        if obj["apiVersion"] != "klot.io/v1":
+            return {"error": "%s apiVersion not klot.io/v1 %s" % (source, obj)}, 400
+
+        if obj["kind"] != "App":
+            return {"error": "%s kind not App %s" % (source, obj)}, 400
+
+        if "spec" not in obj:
+            return {"error": "%s missing spec %s" % (source, obj)}, 400
+
+        if "metadata" not in obj:
+            return {"error": "%s missing metadata %s" % (source, obj)}, 400
+
+        if "version" not in obj["metadata"]:
+            return {"error": "%s missing metadata.version %s" % (source, obj)}, 400
+
+        if name != obj["metadata"].get("name"):
+            return {"error": "%s name does not match %s %s" % (source, name, obj)}, 400
+
+        obj["source"] = source
 
         if "action" in flask.request.json:
             obj["action"] = flask.request.json["action"]

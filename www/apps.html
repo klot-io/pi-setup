@@ -8,7 +8,7 @@
     {{?}}
     <form class="uk-form">
         <div class="uk-form-row">
-            Discover from
+            Discover <input id="name" type="text" placeholder="app" class="uk-form-width-medium"/> from
             <input 
                 type="radio" name="from" value="github"
                 OnClick="DRApp.current.controller.apps_change();"
@@ -39,6 +39,7 @@
         <thead>
             <tr>
                 <th>Name</th>
+                <th>Version</th>
                 <th>Description</th>
                 <th>Action</th>
                 <th>Status</th>
@@ -48,10 +49,11 @@
         <tbody>
             {{~it.apps :app}}
             <tr>
-                <td OnClick="DRApp.go('app','{{!app.name}}')">{{=app.name}}</td>
-                <td OnClick="DRApp.go('app','{{!app.name}}')">{{=app.description}}</td>
-                <td OnClick="DRApp.go('app','{{!app.name}}')">{{=app.action}}</td>
-                <td OnClick="DRApp.go('app','{{!app.name}}')">{{=app.status}}</td>
+                <td OnClick="DRApp.go('app','{{!app.name}}')" class="clickable">{{=app.name}}</td>
+                <td OnClick="DRApp.go('app','{{!app.name}}')" class="clickable">{{=app.name}}</td>
+                <td OnClick="DRApp.go('app','{{!app.name}}')" class="clickable">{{=app.description}}</td>
+                <td OnClick="DRApp.go('app','{{!app.name}}')" class="clickable">{{=app.action}}</td>
+                <td OnClick="DRApp.go('app','{{!app.name}}')" class="clickable">{{=app.status}}</td>
                 <td>
                     {{?app.status == "Downloaded" && app.action != "Install"}}
                         <button type="button" onClick="DRApp.current.controller.app_action('{{!app.name}}', 'Install');" class="uk-button uk-button-primary">

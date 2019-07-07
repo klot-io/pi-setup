@@ -399,7 +399,7 @@ class Daemon(object):
 
         for manifest in obj["spec"]["manifests"]:
 
-            source = copy.deepcopy(obj["spec"]["source"])
+            source = copy.deepcopy(obj["source"])
             source.update(manifest)
 
             print "parsing %s" % source
@@ -415,13 +415,19 @@ class Daemon(object):
 
                 repo = source["repo"]
                 version = source["version"] if "version" in source else "master"
-                path = source["path"] if "path" in source else "klot-io-app.yaml"
 
-                url = "https://raw.githubusercontent.com/%s/%s/%s" % (repo, version, path)
+                url = "https://raw.githubusercontent.com/%s/%s/" % (repo, version)
 
             else:
 
                 raise AppException("cannot parse %s" % source)
+
+            if url.endswith("/"):
+
+                if "path" not in source:
+                    raise AppException("%s has no pathing" % source)
+
+                url = "%s/%s" % (url, source["path"])
 
             print "fetching %s" % url
 
@@ -445,20 +451,20 @@ class Daemon(object):
 
         return "/".join(display)
 
-    def app(self, source, action):
+    def app(self, requirement, action):
 
-        print "searching for %s" % source
+        name = requirement["name"]
 
-        for app in [app.obj for app in pykube.App.objects(self.kube).filter()]:
+        print "searching for %s" % requirement["name"]
 
-            match = True
-            for field in source:
-                if field not in app["spec"]["source"] or source[field] != app["spec"]["source"][field]:
-                    match = False
+        try:
+            app = pykube.App.objects(self.kube).filter().get(name=requirement["name"]).obj
+            print "found %s %s" % (app["metadata"]["name"], app["source"])
+            return app
+        except pykube.ObjectDoesNotExist:
+            pass
 
-            if match:
-                print "found %s %s" % (app["metadata"]["name"], app["spec"]["source"])
-                return app
+        source = requirement["source"]
 
         print "creating %s" % source
 
@@ -469,17 +475,21 @@ class Daemon(object):
         elif "site" in source and source["site"] == "github.com":
 
             if "repo" not in source:
-                raise Exception("missing source.repo for %s" % source["site"])
+                raise AppException("missing source.repo for %s" % source["site"])
 
             repo = source["repo"]
             version = source["version"] if "version" in source else "master"
-            path = source["path"] if "path" in source else "klot-io-app.yaml"
 
-            url = "https://raw.githubusercontent.com/%s/%s/%s" % (repo, version, path)
+            url = "https://raw.githubusercontent.com/%s/%s/" % (repo, version)
 
         else:
 
             raise Exception("cannot preview %s" % source)
+
+        if url.endswith("/"):
+
+            path = source["path"] if "path" in source else "klot-io-app.yaml"
+            url = "%s/%s" % (url, path)
 
         print "requesting %s" % url
 
@@ -490,13 +500,28 @@ class Daemon(object):
 
         obj = yaml.safe_load(response.text)
 
-        if (
-            not isinstance(obj, dict) or obj["apiVersion"] != "klot.io/v1" or obj["kind"] != "App" or 
-            "spec" not in obj or "source" not in obj['spec'] or obj['spec']["source"] != source or
-            "metadata" not in obj or "spec" not in obj or len(obj.keys()) != 4
-        ):
-            raise Exception("source %s has malformed App %s" % (source, obj))
+        if not isinstance(obj, dict):
+            raise Exception("source %s produced non dict %s" % (source, obj))
 
+        if obj["apiVersion"] != "klot.io/v1":
+            raise Exception("source %s apiVersion not klot.io/v1 %s" % (source, obj))
+
+        if obj["kind"] != "App":
+            raise Exception("source %s kind not App %s" % (source, obj))
+
+        if "spec" not in obj:
+            raise Exception("source %s missing spec %s" % (source, obj))
+
+        if "metadata" not in obj:
+            raise Exception("source %s missing metadata %s" % (source, obj))
+
+        if "version" not in obj["metadata"]:
+            raise Exception("source %s missing metadata.version %s" % (source, obj))
+
+        if name != obj["metadata"].get("name"):
+            raise Exception("source %s name does not match %s %s" % (source, name, obj))
+
+        obj["source"] = source
         obj["action"] = action
         obj["status"] = "Discovered"
 
@@ -514,7 +539,7 @@ class Daemon(object):
 
                 app = self.app(requirement, obj["action"])
 
-                print "sourced %s %s" % (app["metadata"]["name"], app["spec"]["source"])
+                print "sourced %s %s" % (app["metadata"]["name"], app["source"])
 
     def satisfy(self, obj):
 

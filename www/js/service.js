@@ -303,7 +303,8 @@ DRApp.controller("Base",null,{
         return source;
     },
     apps_action: function(action) {
-        this.it.message = this.rest("POST","/api/app", {source: this.apps_source(), action: action}).message;
+        var name = $("#name").val();
+        this.it.message = this.rest("POST","/api/app", {name: name, source: this.apps_source(), action: action}).message;
         this.application.refresh();
     },
     app: function() {
