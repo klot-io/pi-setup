@@ -16,7 +16,7 @@ PORT=8083
 KLOTIO_HOST?=klot-io.local
 
 
-.PHONY: cross build shell boot cluster update export shrink zip config clean kubectl tag
+.PHONY: cross build shell boot cluster update export shrink zip config clean kubectl tag untag
 
 cross:
 	docker run --rm --privileged multiarch/qemu-user-static:register --reset
@@ -70,3 +70,7 @@ endif
 tag:
 	-git tag -a "v$(VERSION)" -m "Version $(VERSION)"
 	git push origin --tags
+
+untag:
+	-git tag -d "v$(VERSION)"
+	git push origin ":refs/tags/v$(VERSION)"
