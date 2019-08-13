@@ -1,3 +1,25 @@
+# SSD
+
+This is how to boot off of a SSD harddrive
+
+## requirements
+
+- A hard drive like [this](https://www.amazon.com/gp/product/B073H552FK/ref=ppx_yo_dt_b_search_asin_title?ie=UTF8&psc=1)
+
+## process
+
+- Burn the image onto the SSD
+- `make config` (if you want)
+- Boot with the SSD attached (no SD card)
+- `sudo lsblk` to determine the partition (usually sda)
+- `sudo fdisk /dev/sda` to repartition
+- `p` to copy start of sda2
+- `d` and accept default to delete the 2 partition (it's ok)
+- `n` new primary (default), 2 (default) paste the start, and all the way to the end (default), n to not remove signature
+- `w` to write 
+- `sudo shutdown -r now` to reboot
+- `sudo resize2fs /dev/sda2` to resize
+
 # Apps
 
 An App is just Custom Resource Definition in Kuberenetes I created for Klot I/O. Adding an App for Download is literally just creating a resource, like making Namespace or Pod.
@@ -167,26 +189,6 @@ Protocol to use, http/https currently.
 
 Host to use. It'll build the URL as protocol://host.
 
-# Console
-
-I use this to make the images.  
-
-## requirements
-
-- A cable like [these](https://www.amazon.com/gp/product/B07554Z4LX/ref=ppx_yo_dt_b_search_asin_title?ie=UTF8&psc=1)
-- Drivers for the [Mac](http://www.prolific.com.tw/us/showproduct.aspx?p_id=229&pcid=41)
-
-Once installed:
-
-```bash
-screen -S pi /dev/cu.usbserial 115200
-# To exit, ctrl-a, :quit and then unplug the cable
-```
-
-Can leave console going through multiple reboots of the Pi.
-
-To disconnect, ctrl-a, :quit, and then unplugged the cable from the Mac.  Not doing this may require a hard reboot of the Mac.
-
 # kubectl
 
 This assumes you have a Mac.  I will eventually verify this works on Linux or modify til it does.  Same with Windows.
@@ -254,6 +256,26 @@ The Daemon is at [lib/daemon.py](lib/daemon.py). It's a basic Python Daemon that
 ## DNS
 
 The DNS server is at [lib/name.py](lib/name.py). It's a simple name server that queries Kuberentes and responds to service names accordingly, passing the rest through to 8.8.8.8. 
+
+# Console
+
+I use this to make the images.  
+
+## requirements
+
+- A cable like [these](https://www.amazon.com/gp/product/B07554Z4LX/ref=ppx_yo_dt_b_search_asin_title?ie=UTF8&psc=1)
+- Drivers for the [Mac](http://www.prolific.com.tw/us/showproduct.aspx?p_id=229&pcid=41)
+
+Once installed:
+
+```bash
+screen -S pi /dev/cu.usbserial 115200
+# To exit, ctrl-a, :quit and then unplug the cable
+```
+
+Can leave console going through multiple reboots of the Pi.
+
+To disconnect, ctrl-a, :quit, and then unplugged the cable from the Mac.  Not doing this may require a hard reboot of the Mac.
 
 # Image
 
@@ -360,24 +382,3 @@ make zip
 
 This will shrink down images/pi-(version>).img to a more manageable size. 
 
-# SSD
-
-This is how to boot off of a SSD harddrive
-
-## requirements
-
-- A hard drive like [this](https://www.amazon.com/gp/product/B073H552FK/ref=ppx_yo_dt_b_search_asin_title?ie=UTF8&psc=1)
-
-## process
-
-- Burn the image onto the SSD
-- `make config` (if you want)
-- Boot with the SSD attached (no SD card)
-- `sudo lsblk` to determine the partition (usually sda)
-- `sudo fdisk /dev/sda` to repartition
-- `p` to copy start of sda2
-- `d` and accept default to delete the 2 partition (it's ok)
-- `n` new primary (default), 2 (default) paste the start, and all the way to the end (default), n to not remove signature
-- `w` to write 
-- `sudo shutdown -r now` to reboot
-- `sudo resize2fs /dev/sda2` to resize
