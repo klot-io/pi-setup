@@ -37,3 +37,7 @@ To see all the nitty gritty details, hit up [Architecture](http://www.klot.io/#a
 Ready to get started? Hit up [Install](Install.md) for how.
 
 Once running, you can install Apps from repos I created in GitHub. Right now, I just have the Redis service, but I'm looking to add more. Check out [Apps](Apps.md) for more.
+
+To see what the system can do, give [GUI](GUI.md">GUI</a> a gander.
+
+Wanna play too?  Awesome! [Development](Development.md) is for you.
