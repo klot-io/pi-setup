@@ -86,3 +86,25 @@ Basically, you can run the GUI locally and burn your settings right onto the car
 - After a few minutes, go to http://<cluster>-klot-io.local where <cluster> is the cluster you configured.
 
 Check out [Apps](Apps.md) and [GUI](GUI.md) for more.
+
+## SSD
+
+This is how to boot off of a SSD harddrive for installation
+
+### requirements
+
+- A hard drive like [this](https://www.amazon.com/gp/product/B073H552FK/ref=ppx_yo_dt_b_search_asin_title?ie=UTF8&psc=1)
+
+### process
+
+- Burn the image onto the SSD
+- `make config` (if you want)
+- Boot with the SSD attached (no SD card)
+- `sudo lsblk` to determine the partition (usually sda)
+- `sudo fdisk /dev/sda` to repartition
+- `p` to copy start of sda2
+- `d` and accept default to delete the 2 partition (it's ok)
+- `n` new primary (default), 2 (default) paste the start, and all the way to the end (default), n to not remove signature
+- `w` to write 
+- `sudo shutdown -r now` to reboot
+- `sudo resize2fs /dev/sda2` to resize
