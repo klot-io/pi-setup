@@ -51,7 +51,7 @@ Congrats!  You have a Kubrernetes Cluster on Raspberry Pi's! Hit up [Apps](Apps.
 
 To see what this system can do, check out [GUI](GUI.md)
 
-### Secure
+## Secure
 
 This is a little more involved but more secure. 
 
@@ -73,6 +73,7 @@ This just works on Mac for now.  Happy to do Windows and Linux (which might alre
 - You know how to reserve IP addresses on your remote (optional)
 - You know your way around docker and a command line in general
 
+Basically, you can run the GUI locally and burn your settings right onto the cards before putting them into the Pi's.
 
 - Pop the SD card out after burning and pop it back in.
 - Enable the cross compiler with `make cross`.
