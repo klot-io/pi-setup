@@ -73,9 +73,6 @@ This just works on Mac for now.  Happy to do Windows and Linux (which might alre
 - You know how to reserve IP addresses on your remote (optional)
 - You know your way around docker and a command line in general
 
-Requirements:
-- docker
-- docker-compose
 
 - Pop the SD card out after burning and pop it back in.
 - Enable the cross compiler with `make cross`.
