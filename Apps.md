@@ -51,3 +51,17 @@ Congrats! You now have Nandy Speech (and a Redis server) running in your home cl
 Yep, that's a URL on your local network based on the App and Service name. 
 For you Kubernetes savy folks, yes nginx serving the site on each node also acts as a distributed Ingress controller using LoadBalancer Service definitions.
 For anyone wondering how the hell the DNS is working, we're using that same Service to register CNAMES through avahi / mDNS.  Neat huh?
+
+## Uzbeki Blues
+
+If you're on Windows, the URL of the Apps might now work.  If you're on an Android tablet, accessing the Apps probably won't work at all. We're using mDNS here and it's not fully supported on Windows/Android in some cases. 
+
+Fortunately, we have a way around it, if you're done with some network settings. 
+
+- Figure out the IP of your Master node
+- Go into your device's network DNS settings 
+- Replace the DNS servers with the IP for your Master node
+
+NOTE: You best keep your Master node running for that device to work properly, whether you're using Klot I/O or not. 
+
+That's because the Master node of Klot I/O acts as a DNS server, serving our special mDNS records through regualr DNS, and passing everything else through to 8.8.8.8 (Google's DNS). So while your errants devices can't use mDNS, we can fake them out a little.
