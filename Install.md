@@ -135,7 +135,7 @@ This is how to boot off of a SSD harddrive for installation. I put this here bec
 
 ### process
 
-- Burn the image onto the SSD
+- Burn the base image [pi-0.1.img.zip](https://klot-io.sfo2.cdn.digitaloceanspaces.com/pi-0.1.img.zip) onto the SSD
 - `make config` (if you want)
 - Boot with the SSD attached (no SD card)
 - `sudo lsblk` to determine the partition (usually sda)
