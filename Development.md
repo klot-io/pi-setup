@@ -1,25 +1,3 @@
-# kubectl
-
-This assumes you have a Mac.  I will eventually verify this works on Linux or modify til it does.  Same with Windows.
-
-kubectl is the command line tool for interacting with Kuberentes.  While the [GUI](GUI.md) is great and makes lots of things easier, you really should become familiar with kubectl if you want to improve your Kubernetes game. 
-
-- Check out this repo and set up a cluster via [Install]{Install.md}
-- Type `make kubectl`
-  - This will install kubectl if you don't already have it
-- It'll ask you for the cluster and password. 
-  - Use the name of the cluster you configured the Master with
-- It'll create a context for this cluster (<cluster>-klot-io). 
-- If you have an existing `~/.kube/config` it'll merge else it'll just create a new ~/.kube/config file. 
-
-You can see if it worked by checking nodes:
-
-```
-kubectl get nodes
-```
-
-From here, you best check out [Kubernetes](https://kubernetes.io/docs/tutorials/) understanding that you've already created a cluster. You will be able do things like deploying an App manually. 
-
 # Apps
 
 An App is just Custom Resource Definition in Kuberenetes I created for Klot I/O. Adding an App for Download is literally just creating a resource, like making Namespace or Pod.
@@ -209,9 +187,77 @@ Can leave console going through multiple reboots of the Pi.
 
 To disconnect, ctrl-a, :quit, and then unplugged the cable from the Mac.  Not doing this may require a hard reboot of the Mac.
 
+# kubectl
+
+This assumes you have a Mac.  I will eventually verify this works on Linux or modify til it does.  Same with Windows.
+
+kubectl is the command line tool for interacting with Kuberentes.  While the [GUI](GUI.md) is great and makes lots of things easier, you really should become familiar with kubectl if you want to improve your Kubernetes game. 
+
+- Check out this repo and set up a cluster via [Install](Install.md)
+- Type `make kubectl`
+  - This will install kubectl if you don't already have it
+- It'll ask you for the cluster and password. 
+  - Use the name of the cluster you configured the Master with
+- It'll create a context for this cluster (cluster-klot-io). 
+- If you have an existing `~/.kube/config` it'll merge else it'll just create a new ~/.kube/config file. 
+
+You can see if it worked by checking nodes:
+
+```
+kubectl get nodes
+```
+
+From here, you best check out [Kubernetes](https://kubernetes.io/docs/tutorials/) understanding that you've already created a cluster. You will be able do things like deploying an App manually. 
+
+# Services
+
+If you want to hack on the different [Services](http://www.klot.io/#/overview), you can modify them right here and update your local cluster with them.
+
+- First setup your cluster `make cluster`
+- It'll ask you for the cluster and password. 
+  - Use the name of the cluster you configured the Master with
+- Enter the worker nodes one by one
+- It'll create local information to use later
+
+Like now.  To update all the services across your cluster:
+
+- Type `make update`
+- It'll ask you for the cluster and password. 
+  - Use the name of the cluster you configured the Master with
+- What the scroll do the updating
+
+If something goes wrong, you can check the logs via the GUI.
+
+If something goes really wrong, ssh to a node and use the following commands to view the logs of the different services:
+
+```
+sudo journalctl -u klot-io-dns    # DNS
+sudo journalctl -u klot-io-daemon # Daemon
+sudo journalctl -u klot-io-api    # API
+sudo journalctl -u nginx          # GUI
+```
+
+## GUI
+
+The GUI is located in the [www/](www/) directory here.  It's a [doTRoute.js](http://gaf3.github.io/dotroute/) JavaScript one pager.  Haven't heard of doTRoute.js?  Ya, that's because I created and usually don't bother with any self promotion. 
+
+The main files you care about are the *.html which utilize [doT.js](http://olado.github.io/doT/) templating and the controller is (service.js)[www/js/service.js].
+
+## API
+
+The API is [lib/manage.py](lib/manage.py). It's a regular ol' [Flask App](https://flask.palletsprojects.com/en/1.1.x/).
+
+## Daemon
+
+The Daemon is at [lib/daemon.py](lib/daemon.py). It's a basic Python Daemon that reads files from on the Pi and implements those settings. It also does a little auto discovery magic that times a little time so the API can respond snappily. 
+
+## DNS
+
+The DNS server is at [lib/name.py](lib/name.py). It's a simple name server that queries Kuberentes and responds to service names accordingly, passing the rest through to 8.8.8.8. 
+
 # Image
 
-This all completely open source.  If you want ot make your own image, go right ahead.
+If you want ot make your own image, go right ahead.
 
 ## requirements
 
