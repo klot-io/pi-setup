@@ -229,7 +229,7 @@ The API is [lib/manage.py](lib/manage.py). It's a regular ol' [Flask App](https:
 
 ## Daemon
 
-The Daemon is at [lib/daemon.py](lib/daemon.py). It's a basic Python Daemon that reads files from on the Pi and implements those settings. It also does a little auto discovery magic that times a little time so the API can respond snappily. 
+The Daemon is at [lib/config.py](lib/config.py). It's a basic Python Daemon that reads config files from on the Pi and implements those settings. It also does a little auto discovery magic that times a little time so the API can respond snappily. 
 
 ## DNS
 

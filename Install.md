@@ -75,6 +75,7 @@ This just works on Mac for now.  Happy to do Windows and Linux (which might alre
 
 Basically, you can run the GUI locally and burn your settings right onto the cards before putting them into the Pi's.
 
+- Burn the base image [pi-0.1.img.zip](https://klot-io.sfo2.cdn.digitaloceanspaces.com/pi-0.1.img.zip)
 - Pop the SD card out after burning and pop it back in.
 - Enable the cross compiler with `make cross`.
   - This allows ARM (Raspberry Pi processor) images to run on docker. 
@@ -87,9 +88,46 @@ Basically, you can run the GUI locally and burn your settings right onto the car
 
 Check out [Apps](Apps.md) and [GUI](GUI.md) for more.
 
+## H@X0rs ONLY
+
+![Cool Guy Zone - Keep Out](https://66.media.tumblr.com/e78e21d4fc54414762f10870c3ad28d1/tumblr_n3kwswb9FS1qgoq0ro1_500.png)
+
+The config files to setup the Pi's are just basic YAML. Normally they're in the `/opt/klot-io/config/` directory, but if you put files in the `/boot/klot-io/config/` directory, they'll automatically be copied over and implemented accordingly. 
+
+Here's the different files:
+
+account.yaml - Controls the pi and GUI/API account
+
+```yaml
+password: # used for the pi user account and GUI/API loging
+ssh:      # enabled|disabled
+```
+
+network.yaml - Controls the Pi's network connection for Kuberentes
+
+```yaml
+interface: # eth0 - wired | wlan0 - wireless
+country:   # country code for wireless settings, ie US
+ssid:      # SSID to connect to
+psk:       # Password to connect with (leave blank for none)
+```
+
+kubernetes.yaml - Controls the Pi's role in Kubernetes
+
+```yaml
+role:      # master|worker|reset - completely resets Kubernetes via kubeadm reset
+cluster:   # name of the cluster
+name:      # name of the node (worker only)
+```
+
+- Burn the base image [pi-0.1.img.zip](https://klot-io.sfo2.cdn.digitaloceanspaces.com/pi-0.1.img.zip)
+- Pop the SD card out after burning and pop it back in.
+- Put your YAML files in `/Volumes/boot/klot-io/config`
+- Repeat for each Pi, making sure to use slightly different `kubernetes.yaml` files for each
+
 ## SSD
 
-This is how to boot off of a SSD harddrive for installation
+This is how to boot off of a SSD harddrive for installation. I put this here because I'll forget otherwise.
 
 ### requirements
 
