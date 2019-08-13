@@ -208,7 +208,7 @@ Like now.  To update all the services across your cluster:
 
 If something goes wrong, you can check the logs via the GUI.
 
-If something goes really wrong, ssh to a node and use the following commands to view the logs of the different services:
+If something goes really wrong, ssh to a node (usually the master) and use the following commands to view the logs of the different services:
 
 ```
 sudo journalctl -u klot-io-dns    # DNS
