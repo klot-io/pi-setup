@@ -15,37 +15,59 @@
 - Your network has DHCP and you plan to use it
 - You know how to reserve IP addresses on your remote (optional)
 
-NOTE:  There's a lot of stuff coming up and will eventually be consistent. If something doesn't work, wait a bit and try again. I'll be working on smoothing everything out.
+NOTE: There's a lot of stuff coming up and will eventually be consistent. If something doesn't work, wait a bit and try again. I'll be working on smoothing everything out.
+
+### Burn 
 
 - Download the [pi-0.1.img.zip](https://klot-io.sfo2.cdn.digitaloceanspaces.com/pi-0.1.img.zip) and burn it into an SD card. 
   - I'm fond of [Samsung's EVO Select 32Gb](https://www.samsung.com/us/computing/memory-storage/memory-cards/microsdhc-evo-select-memory-card-w--adapter-32gb--2017-model--mb-me32ga-am/) cards but use whatever you like.
   - I'm not an expert in which cards perform best or whatever.
-- Power Up
-  - Insert SD card into Pi.  Wire to your network (ethernet cable). Power up.
-  - Wait a few minutes or so as the OS expands the filesystem. 
-  - Get impatient and go to [http://klot-io.local/](http://klot-io.local/) anyway, understanding it might not come up right away or be persnickety.
-  - Log in with the password 'kloudofthings'.
-  - Oh btw, you're logging into your new Pi right now.
-- Configure Master
-  - Set a new password. This'll be both for the GUI/API you're using and the pi account on the Pi (make sure it's like 8 chars long).
-  - Decide whether to enable SSH or leave it disabled.  It's up to you, and you can change later through this page.
-  - Enter the WiFi settings for your network or leave it as is to stay wired.
-    - You might want to go to your router and have the IP address for the Master reserved
-    - This will prevent the IP from changing. Mine doesn't seem to need it but I don't know every router.
-  - Set the role to Master for this first one and give your cluster a name, lowercase, no spaces (I should have something check that and password too). 
-  - Click Config.  You should now have to log in with your new password.
-  - Note the site URL changed to (cluster)-klot-io.local. This is the hostname of the Master now and will be your home base going forward.
-- Join Workers
-  - Once the status is Master, burn another SD card, and plug it into a new Pi, wire to the network, and power up.
-  - Head over the Nodes page. After a few minutes, a Node called "klot-io" willl appear.  That's your new Node.
-  - You'll want to wait a few minutes as the hard drive reconfigures and the Pi reboots, it'll be be persnickety otherwise.
-  - To have it join as a Worker with the same settings as the Master, give it a name and click Join. 
-  - To have it join as a Worker with different settings, click it's name and Config on its own site.
-  - Back at the Master's Nodes, page, wait 20 seconds or so, and it'll appear in the Node listing as (name)-(cluster)-klot-io.local
-  - If you've switched from Wired to Wireless, it may hang as NotReady.  Give it a minute and then power cycle the Worker.
-  - Repeat for as many Workers as needed.
-    - Do one at a time.
-    - Just Make sure each name is unique (ya, should probably write something to check this too).
+
+### Login
+
+![login](img/login.png)
+
+- Insert SD card into Pi.  Wire to your network (ethernet cable). Power up.
+- Wait a few minutes or so as the OS expands the filesystem. 
+- Get impatient and go to [http://klot-io.local/](http://klot-io.local/) anyway, understanding it might not come up right away or be persnickety.
+- Log in with the password 'kloudofthings'.
+- Oh btw, you're logging into your new Pi right now.
+
+## Configure Master
+
+![master](img/master.png)
+
+- Set a new password. This'll be both for the GUI/API you're using and the pi account on the Pi (make sure it's like 8 chars long).
+- Decide whether to enable SSH or leave it disabled.  It's up to you, and you can change later through this page.
+- Enter the WiFi settings for your network or leave it as is to stay wired.
+  - You might want to go to your router and have the IP address for the Master reserved
+  - This will prevent the IP from changing. Mine doesn't seem to need it but I don't know every router.
+- Set the role to Master for this first one and give your cluster a name, lowercase, no spaces (I should have something check that and password too). 
+- Click Config.  You should now have to log in with your new password.
+- Note the site URL changed to (cluster)-klot-io.local. This is the hostname of the Master now and will be your home base going forward.
+- Log in with your new password and wait for the status to change to Master
+  - This'll take several minutes, might want to get a sandwich
+
+![status](img/status.png)
+
+### Join Workers
+
+![join](img/join.png)
+
+- Once the status is Master, burn another SD card, and plug it into a new Pi, wire to the network, and power up.
+  - Wait for the Master to be Ready
+  - Not sure why that status and the other aren't in sync
+- Head over the Nodes page. After a few minutes, a Node called "klot-io" willl appear.  That's your new Node.
+- You'll want to wait a few minutes as the hard drive reconfigures and the Pi reboots, it'll be be persnickety otherwise.
+- To have it join as a Worker with the same settings as the Master, give it a name and click Join. 
+- To have it join as a Worker with different settings, click it's name and Config on its own site.
+- Back at the Master's Nodes, page, wait 20 seconds or so, and it'll appear in the Node listing as (name)-(cluster)-klot-io.local
+- If you've switched from Wired to Wireless, it may hang as NotReady.  Give it a minute and then power cycle the Worker.
+- Repeat for as many Workers as needed.
+  - Do one at a time.
+  - Just Make sure each name is unique (ya, should probably write something to check this too).
+
+![workers](img/workers.png)
 
 Congrats!  You have a Kubrernetes Cluster on Raspberry Pi's! Hit up [Apps](Apps.md) for what's next.
 
@@ -92,7 +114,7 @@ Check out [Apps](Apps.md) and [GUI](GUI.md) for more.
 
 ![Cool Guy Zone - Keep Out](https://66.media.tumblr.com/e78e21d4fc54414762f10870c3ad28d1/tumblr_n3kwswb9FS1qgoq0ro1_500.png)
 
-The config files to setup the Pi's are just basic YAML. Normally they're in the `/opt/klot-io/config/` directory, but if you put files in the `/boot/klot-io/config/` directory, they'll automatically be copied over and implemented accordingly. 
+The config files to setup the Pi's are just basic YAML. Normally they're in the `/opt/klot-io/config/` directory, but if you put files in the `/boot/klot-io/config/` directory, they'll automatically be copied over and implemented accordingly.  That's all the above process is doing.  It's mounting the `/boot/klot-io/config/` inside the API container as `/opt/klot-io/config/`. So when it saves the config to `/opt/klot-io/config/` it ends up on `/boot/klot-io/config/` which is copied over when the Pi starts up. 
 
 Here's the different files:
 
