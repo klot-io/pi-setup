@@ -58,7 +58,7 @@ That's because the Master node of Klot I/O acts as a DNS server, serving our spe
 Here's a list of all the Apps with their current statuses:
 - green - ready to go with good docs
 - blue - ready to go with bad or no docs
-- yellow - I barely remember how it works
+- yellow - barely remember how it works
 - red - vaporware
 
 | name | status | description | 
