@@ -5,41 +5,54 @@ It's the little ol' website you log into do the things.
 
 ## Login
 
+![login](img/login.png)
+
 If you haven't logged in, this is the only page that'll work. 
 The default passwords if nothing's been configured is 'kloudofthings' because I'm a man of mystery if anything. 
 Just type in that or the password you changed everything to and hit return.
 
-
 ## Config
+
+![config](img/config.png)
 
 If you've logged in, but haven't set anything up, you'll end up at Config.
 This is where you can configure (obvs) this Node. 
 
 ## Status
 
+![status](img/status.png)
+
 If you've congfigured, the Node has an idea of what's it's supposed to be and will send you here. 
 This is the Status of the Node and contains a list of what each Status means.
 
 ## Logs
 
-Here you can check in on this and other components by viewing ther logs.
-- Daemon - You can look at it's logs here, and see things like tracebacks like with the API.
-- API - You can look at the API's logs here, and see things like tracebacks where things go super wrong.
-- GUI - The logs for this interface.  Nothing much interesting here. You can  mainly check the return code from the API.
+![logs](img/logs.png)
 
-## Node
+Here you can check in on this and other components by viewing ther logs.
+- daemon - You can look at it's logs here, and see things like tracebacks like with the API.
+- dns - Mini dns server's logs
+- api - You can look at the API's logs here, and see things like tracebacks where things go super wrong.
+- gui - The logs for this interface.  Nothing much interesting here. You can  mainly check the return code from the API.
+
+## Nodes
+
+![nodes](img/nodes.png)
 
 These are all the Nodes of the your cluster, what their current statuses are, and how to add or remove Nodes from the cluster. 
 
-Btw, this page is a little slow because querying Kubernetes is slow.
-I can improve by either caching node info or having the GUI be more async - just haven't gotten around to either.
+NOTE: CPU is a percentage of cores.  I think I just assume 4.  I shouldn't do that. 
 
 ## Pods
 
+![pods](img/pods.png)
+
 Here you can see all the Pods in the Kuberenetes cluster and there status.
-It's really only good for basic "Hey is this thing running yet?" but I plan to add Logs for the Pods as well. 
+It's really only good for basic "Hey is this thing running yet?" but I plan to add Logs for the Pods as well. Correction, I seem to have already added Logs at some point. 
 
 ## Apps
+
+![apps](img/apps.png)
 
 This is where you can Install Apps or just Download Apps to check whats a gonna happenin'.
 The Apps listing shows Action and Status.

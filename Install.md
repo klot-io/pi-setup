@@ -35,7 +35,7 @@ NOTE: There's a lot of stuff coming up and will eventually be consistent. If som
 
 ### Configure Master
 
-![master](img/master.png)
+![config](img/config.png)
 
 - Set a new password. This'll be both for the GUI/API you're using and the pi account on the Pi (make sure it's like 8 chars long).
 - Decide whether to enable SSH or leave it disabled.  It's up to you, and you can change later through this page.
@@ -67,7 +67,7 @@ NOTE: There's a lot of stuff coming up and will eventually be consistent. If som
   - Do one at a time.
   - Just Make sure each name is unique (ya, should probably write something to check this too).
 
-![workers](img/workers.png)
+![nodes](img/nodes.png)
 
 Congrats!  You have a Kubrernetes Cluster on Raspberry Pi's! Hit up [Apps](Apps.md) for what's next.
 

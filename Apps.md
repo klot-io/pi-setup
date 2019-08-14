@@ -16,7 +16,7 @@ In the future, I'll have a bunch of Apps. For now there's just Nandy Speech and 
 - Click the Download button.
 - In 10-20 seconds, Nandy Speech and Redis will appear in the Apps listing, prepping to be installed.
 
-![downloaded](img/downloaded.png)
+![apps](img/apps.png)
 
 ### Labels
 
