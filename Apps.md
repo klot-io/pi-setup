@@ -65,13 +65,13 @@ Here's a list of all the Apps with their current statuses:
 | ---- | ------ | ----------- |
 | [redis.klot.io](https://github.com/klot-io/redis) | blue | Redis server |
 | [mysql.klot.io](https://github.com/klot-io/mysql) | blue | MySQL server |
-| [speech.nandy.io](https://github.com/nandy-io/speech) | blue | Text to Speech on the Pi's|
-| [chore.nandy.io](https://github.com/nandy-io/chore) | blue | [ Chores for the kiddos (and adults) |
+| [speech.nandy.io](https://github.com/nandy-io/speech) | blue | Text to Speech on the Pi's |
+| [chore.nandy.io](https://github.com/nandy-io/chore) | blue | Chores for the kiddos (and adults) |
 | [button.nandy.io](https://github.com/nandy-io/button) | blue | Responds to buttons pushed on the Pi's |
 | [chore-speech.nandy.io](https://github.com/nandy-io/chore-speech) | blue | Chore to Speech integration (yells at the kiddos) |
 | [chore-button.nandy.io](https://github.com/nandy-io/chore-button) | blue | Chore to Button integration (kiddos push a button to complete a task) |
-| [chore-google.nandy.io](https://github.com/nandy-io/chore-google) | yellow | Chore to Google Calendar integration for scheduling. |
-| [chore-slack.nandy.io](https://github.com/nandy-io/chore-slack) | yellow | Chore to Slack integration for notification. |
+| [chore-google.nandy.io](https://github.com/nandy-io/chore-google) | yellow | Chore to Google Calendar integration for scheduling |
+| [chore-slack.nandy.io](https://github.com/nandy-io/chore-slack) | yellow | Chore to Slack integration for notification |
 | [share.nandy.io](https://github.com/nandy-io/share) | red | Account for time and money in the household (read: allowance) |
 | [chore-share.nandy.io](https://github.com/nandy-io/chore-share) | red | Chore to Share integration (reward the kiddos / game the system) |
 | [graphite.klot.io](https://github.com/klot-io/graphite) | red | Graphite server |
