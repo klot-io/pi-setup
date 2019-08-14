@@ -6,13 +6,17 @@ In the future, I'll have a bunch of Apps. For now there's just Nandy Speech and 
 
 ## Download
 
+![download](img/download.png)
+
 - Go to the Apps page in the GUI.
 - Enter 'speech.nandy.io' in the app field.
 - Select GitHub for the from field
 - Enter 'nandy-io/speech' in owner/project field.
 - Leave the following two fields blank (defaults of master and klot-io-app.yaml)
-- Click the Install button.
+- Click the Download button.
 - In 10-20 seconds, Nandy Speech and Redis will appear in the Apps listing, prepping to be installed.
+
+![downloaded](img/downloaded.png)
 
 ### Labels
 
@@ -22,15 +26,30 @@ Some Apps require that you label nodes. In some cases, it's so the App knows whi
 - Click a checkbox under labels to place it on a specfic Node (required).
 - It will be automatically saved.
   - You can uncheck a checkbox to remvoe a label.
+
+![redis](img/redis.png)
+
 - Go back to Apps.
 - Click the Nandy App.
-- Click a checkbox under labels to tell it which Nodes have speakers attached (you can use headphones for now).
+- Click a checkbox under labels to tell it which Nodes have speakers attached 
+  - You can connect headphones to the node you selected for now
+
+![speech](img/speech.png)
 
 For you Kubernetes savy folks, yes this is labeling Nodes through traditional Kubernetes. It'll prefix the actual labels with the app name. So `storage` is really `redis.klot.io/storage` and 'speakers' is really `speech.nandy.io/speakers`.
 
 ## Install
 
-After labelling, head over to the Pods page to watch the Pods come up. Once they're all up, head back to Apps, and click Open in the Nandy Speech App. Type something (preferably inappropriate) and listen to your own shenanigans.
+- After labelling, click Install 
+- Head over to the Pods page to watch the Pods come up (Status = Running).
+  - Click the speech-nandy-io namespace to focus on the Pods we care about
+- Once they're all up, head back to Apps
+- Click Open in the Nandy Speech App.
+  - If this doen't work, wait several more minutes.
+  - I need to have better visibility into what's really ready.
+- Type something (preferably inappropriate) and listen to your own shenanigans.
+
+![speak](img/speak.png)
 
 ## Great Success
 
