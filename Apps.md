@@ -70,7 +70,7 @@ Fortunately, we have a way around it, if you're down with some network settings.
 
 NOTE: You best keep your Master node running for that device to work properly, whether you're using Klot I/O or not. 
 
-That's because the Master node of Klot I/O acts as a DNS server, serving our special mDNS records through regualr DNS, and passing everything else through to 8.8.8.8 (Google's DNS). So while your errants devices can't use mDNS, we can fake them out a little with some mini DNS (Don't look up that term - I just made it up).
+That's because the Master node of Klot I/O acts as a DNS server, serving our special mDNS records through regualr DNS, and passing everything else through to whatever the Pi is using for DNS. So while your errants devices can't use mDNS, we can fake them out a little with some mini DNS (Don't look up that term - I just made it up).
 
 ## The Legends Continue...
 
