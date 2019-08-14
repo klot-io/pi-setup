@@ -33,7 +33,7 @@ NOTE: There's a lot of stuff coming up and will eventually be consistent. If som
 - Log in with the password 'kloudofthings'.
 - Oh btw, you're logging into your new Pi right now.
 
-## Configure Master
+### Configure Master
 
 ![master](img/master.png)
 
