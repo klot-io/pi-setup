@@ -55,9 +55,9 @@ NOTE: There's a lot of stuff coming up and will eventually be consistent. If som
 ![join](img/join.png)
 
 - Once the status is Master, burn another SD card, and plug it into a new Pi, wire to the network, and power up.
+- Head over the Nodes page. After a few minutes, a Node called "klot-io" willl appear.  That's your new Node.
   - Wait for the Master to be Ready
   - Not sure why that status and the other aren't in sync
-- Head over the Nodes page. After a few minutes, a Node called "klot-io" willl appear.  That's your new Node.
 - You'll want to wait a few minutes as the hard drive reconfigures and the Pi reboots, it'll be be persnickety otherwise.
 - To have it join as a Worker with the same settings as the Master, give it a name and click Join. 
 - To have it join as a Worker with different settings, click it's name and Config on its own site.
@@ -145,6 +145,8 @@ name:      # name of the node (worker only)
 - Burn the base image [pi-0.1.img.zip](https://klot-io.sfo2.cdn.digitaloceanspaces.com/pi-0.1.img.zip)
 - Pop the SD card out after burning and pop it back in.
 - Put your YAML files in `/Volumes/boot/klot-io/config`
+  - Make sure you use the same password for each
+  - The Kuberentes token the Workers use for joining is derived from this password
 - Repeat for each Pi, making sure to use slightly different `kubernetes.yaml` files for each
 
 ## SSD
