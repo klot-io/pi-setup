@@ -51,7 +51,7 @@ class Daemon(object):
         with open("/etc/resolv.conf", "r") as resolv_file:
             for resolv_line in resolv_file:
                 if "nameserver" in resolv_line:
-                    self.upstream = resolv_line.split(' ')[-1]
+                    self.upstream = resolv_line.split(' ')[-1].strip()
 
     def clear(self):
 

@@ -272,23 +272,12 @@ If you want ot make your own image, go right ahead.
 On Mac:
 
 ```
-# Burn the latest raspbian image (2018-11-13-raspbian-stretch-lite.zip currently) first then, pop it out and back in, then
+# Burn the latest raspbian image (images/2019-09-26-raspbian-buster-lite.zip currently) first then, pop it out and back in, then
 make build
 make boot
 ```
 
 Eject, pop into Pi, connect serial cable, power on, and create a console.
-
-## enable tmpfs
-
-Login when prompted (pi/raspberry)
-
-```
-cd /boot/klot-io/bin
-./tmpfs.sh
-```
-
-Will reboot when done.
 
 ## enable wifi
 
@@ -305,30 +294,9 @@ Answer questions for ssid and psk.
 
 Will reboot when done.
 
-## install kubernetes
-
-Login when prompted (pi/raspberry)
-
-```
-cd /boot/klot-io/bin
-./kubernetes.sh
-```
-
-Will reboot when done.
-
-## download docker images
-
-Login when prompted (pi/raspberry)
-
-```
-cd /boot/klot-io/bin
-./images.sh
-```
-
 ## install klot-io services
 
 ```
-cd /boot/klot-io/bin
 ./klot-io.sh
 ```
 
@@ -336,9 +304,17 @@ Will install and run the config daemon and then tails its logs to make sure it's
 
 The daemon sets hostname to klot-io, change pi password to 'kloudofthings', and reset network to eth0 (if needed)
 
+## enable tmpfs
+
+```
+./tmpfs.sh
+```
+
+Will shutdown when done.
+
 ## export image to Mac
 
-Shutdown the pi, eject the card, place into the Mac. 
+Eject the card, place into the Mac. 
 
 ```
 make export

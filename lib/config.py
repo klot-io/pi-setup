@@ -5,6 +5,7 @@ import glob
 import socket
 import hashlib
 
+import subprocess
 import traceback
 
 import yaml
@@ -296,21 +297,35 @@ class Daemon(object):
 
         if self.config["kubernetes"]["role"] == "reset":
 
-            if not os.path.exists("/home/pi/.kube/config"):
+            if (
+                not os.path.exists("/etc/rancher/k3s") and 
+                not os.path.exists("/var/lib/rancher/k3s") and 
+                not os.path.exists("/home/pi/.kube/config") 
+            ):
                 print "already reset kubernetes"
                 return
 
             try:
                 pykube.Node.objects(self.kube).filter().get(name=self.node).delete()
             except pykube.ObjectDoesNotExist:
-                pass
+                print "node %s not found" % self.node
+            except Exception:
+                traceback.print_exc()
+
+            if os.path.exists("/usr/local/bin/k3s-uninstall.sh"):
+                self.execute("/usr/local/bin/k3s-uninstall.sh")
+            elif os.path.exists("/usr/local/bin/k3s-agent-uninstall.sh"):
+                self.execute("/usr/local/bin/k3s-agent-uninstall.sh")
+
+            self.execute("rm -f /home/pi/.kube/config")
+            self.execute("rm -f /opt/klot-io/config/kubernetes.yaml")
 
             self.host("klot-io")
-            self.execute("rm -f /opt/klot-io/config/kubernetes.yaml")
-            self.execute("rm -f /home/pi/.kube/config")
-            self.execute("kubeadm reset")
-            self.execute("reboot")
- 
+
+        if os.path.exists("/home/pi/.kube/config"):
+            print "already initialized"
+            return
+
         attempts = 20
 
         while attempts:
@@ -324,29 +339,21 @@ class Daemon(object):
             time.sleep(5)
             attempts -= 1
 
-        ip = interfaces[self.config["network"]['interface']]
-        encoded = hashlib.sha256(self.config["account"]["password"]).hexdigest()
-        token = "%s.%s" % (encoded[13:19], encoded[23:39])
-
         if self.config["kubernetes"]["role"] == "master":
+
+            ip = interfaces[self.config["network"]['interface']]
 
             self.host("%s-klot-io" % self.config["kubernetes"]["cluster"])
 
-            if os.path.exists("/home/pi/.kube/config"):
-                print "already initialized master"
-                return
-
             self.execute(" ".join([
-                'kubeadm',
-                'init',
-                '--token=%s' % token,
-                '--token-ttl=0',
-                '--apiserver-advertise-address=%s' % ip,
-                '--pod-network-cidr=10.244.0.0/16',
-                '--kubernetes-version=v1.10.2'
+                'INSTALL_K3S_VERSION=v0.9.1',
+                'K3S_CLUSTER_SECRET=%s' % self.config["account"]["password"],
+                'INSTALL_K3S_EXEC="--no-deploy=traefik --write-kubeconfig-mode=644"',
+                '/opt/klot-io/bin/k3s.sh',
+                'server'
             ]))
 
-            with open("/etc/kubernetes/admin.conf", "r") as config_file:
+            with open("/etc/rancher/k3s/k3s.yaml", "r") as config_file:
                 config = yaml.safe_load(config_file)
 
             config["clusters"][0]["cluster"]["server"] = 'https://%s:6443' % ip
@@ -361,22 +368,18 @@ class Daemon(object):
 
             self.host("%s-%s-klot-io" % (self.config["kubernetes"]["name"], self.config["kubernetes"]["cluster"]))
 
-            if os.path.exists("/etc/kubernetes/bootstrap-kubelet.conf"):
-                print "already initialized worker"
-                return
-
-            self.execute(" ".join([
-                'kubeadm',
-                'join',
-                '%s:6443' % socket.gethostbyname('%s-klot-io.local' % self.config["kubernetes"]["cluster"]),
-                '--token=%s' % token,
-                '--discovery-token-unsafe-skip-ca-verification'
-            ]))
-
             config = requests.get(
                 'http://%s-klot-io.local/api/kubectl' % self.config["kubernetes"]["cluster"],
                 headers={"x-klot-io-password": self.config["account"]['password']},
             ).json()["kubectl"]
+
+            self.execute(" ".join([
+                'INSTALL_K3S_VERSION=v0.9.1',
+                'K3S_URL=%s' % config["clusters"][0]["cluster"]["server"],
+                'K3S_CLUSTER_SECRET=%s' % self.config["account"]["password"],
+                '/opt/klot-io/bin/k3s.sh',
+                'agent'
+            ]))
 
         self.execute("mkdir -p /home/pi/.kube")
         self.execute("rm -f /home/pi/.kube/config")
@@ -387,7 +390,6 @@ class Daemon(object):
         self.execute("chown pi:pi /home/pi/.kube/config")
 
         if self.config["kubernetes"]["role"] == "master":
-            self.execute("sudo -u pi -- kubectl apply -f /opt/klot-io/kubernetes/kube-flannel.yml")
             self.execute("sudo -u pi -- kubectl apply -f /opt/klot-io/kubernetes/klot-io-app-crd.yaml")
 
     def resources(self, obj):

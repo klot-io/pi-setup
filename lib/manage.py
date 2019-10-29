@@ -314,21 +314,17 @@ class Status(flask_restful.Resource):
     @require_auth
     def get(self):
 
-        if not os.path.exists("/opt/klot-io/config/kubernetes.yaml"):
+        if not os.path.exists("/var/lib/rancher/k3s"):
 
             status = "Uninitialized"
 
-        elif os.path.exists("/etc/kubernetes/bootstrap-kubelet.conf"):
+        elif os.path.exists("/etc/systemd/system/k3s-agent.service"):
 
             status = "Joined"
 
-        elif not os.path.exists("/etc/kubernetes/admin.conf"):
-
-            status = "Initializing"
-
         elif not os.path.exists("/home/pi/.kube/config"):
 
-            status = "Creating"
+            status = "Initializing"
 
         else:
 
@@ -622,9 +618,9 @@ class App(flask_restful.Resource):
 
         app = {
             "name": obj["metadata"]["name"],
-            "version": obj["metadata"]["version"],
+            "version": obj["spec"].get("version", ''),
             "namespace": obj["spec"]["namespace"],
-            "description": obj["metadata"]["description"],
+            "description": obj["spec"].get("description", ''),
             "action": "Download",
             "status": "Discovered"
         }
