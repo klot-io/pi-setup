@@ -91,7 +91,7 @@ class Daemon(object):
             yaml.safe_dump({"role": "reset"}, yaml_file, default_flow_style=False)
 
     def restart(self):
-        
+
         print "restarting"
 
         self.execute("cp /boot/klot-io/lib/config.py /opt/klot-io/lib/config.py")
@@ -190,10 +190,10 @@ class Daemon(object):
                     avahi.IF_UNSPEC,
                     avahi.PROTO_UNSPEC,
                     dbus.UInt32(0),
-                    self.encode_cname(cname), 
-                    self.CLASS_IN, 
-                    self.TYPE_CNAME, 
-                    self.TTL, 
+                    self.encode_cname(cname),
+                    self.CLASS_IN,
+                    self.TYPE_CNAME,
+                    self.TTL,
                     avahi.string_to_byte_array(self.encode_rdata(server.GetHostNameFqdn()))
                 )
 
@@ -298,15 +298,15 @@ class Daemon(object):
         if self.config["kubernetes"]["role"] == "reset":
 
             if (
-                not os.path.exists("/etc/rancher/k3s") and 
-                not os.path.exists("/var/lib/rancher/k3s") and 
-                not os.path.exists("/home/pi/.kube/config") 
+                not os.path.exists("/etc/rancher/k3s") and
+                not os.path.exists("/var/lib/rancher/k3s") and
+                not os.path.exists("/home/pi/.kube/config")
             ):
                 print "already reset kubernetes"
                 return
 
             try:
-                pykube.Node.objects(self.kube).filter().get(name=self.node).delete()
+                pykube.Node.objects(self.kube).get(name=self.node).delete()
             except pykube.ObjectDoesNotExist:
                 print "node %s not found" % self.node
             except Exception:
@@ -321,6 +321,10 @@ class Daemon(object):
             self.execute("rm -f /opt/klot-io/config/kubernetes.yaml")
 
             self.host("klot-io")
+
+            self.kube = None
+
+            return
 
         if os.path.exists("/home/pi/.kube/config"):
             print "already initialized"
@@ -348,7 +352,7 @@ class Daemon(object):
             self.execute(" ".join([
                 'INSTALL_K3S_VERSION=v0.9.1',
                 'K3S_CLUSTER_SECRET=%s' % self.config["account"]["password"],
-                'INSTALL_K3S_EXEC="--no-deploy=traefik --write-kubeconfig-mode=644"',
+                'INSTALL_K3S_EXEC="--no-deploy=traefik --no-deploy=servicelb --write-kubeconfig-mode=644"',
                 '/opt/klot-io/bin/k3s.sh',
                 'server'
             ]))
@@ -383,11 +387,11 @@ class Daemon(object):
 
         self.execute("mkdir -p /home/pi/.kube")
         self.execute("rm -f /home/pi/.kube/config")
-        
+
         with open("/home/pi/.kube/config", "w") as config_file:
             yaml.safe_dump(config, config_file, default_flow_style=False)
 
-        self.execute("chown pi:pi /home/pi/.kube/config")
+        self.execute("sudo chown pi:pi /home/pi/.kube/config")
 
         if self.config["kubernetes"]["role"] == "master":
             self.execute("sudo -u pi -- kubectl apply -f /opt/klot-io/kubernetes/klot-io-app-crd.yaml")
@@ -498,7 +502,7 @@ class Daemon(object):
         response = requests.get(url)
 
         if response.status_code != 200:
-            raise Exception("error from source %s url: %s - %s: %s" % (source, url, response.status_code, response.text)) 
+            raise Exception("error from source %s url: %s - %s: %s" % (source, url, response.status_code, response.text))
 
         obj = yaml.safe_load(response.text)
 
@@ -575,7 +579,7 @@ class Daemon(object):
         obj["url"] = "%s://%s.%s.local" % (obj["spec"]["url"]["protocol"], obj["spec"]["url"]["host"], self.node)
 
         if "port" in obj["spec"]["url"]:
-            obj["url"] = "%s:%s" % (obj["url"], obj["spec"]["url"]["port"]) 
+            obj["url"] = "%s:%s" % (obj["url"], obj["spec"]["url"]["port"])
 
         if "path" in obj["spec"]["url"]:
             obj["url"] = "%s/%s" % (obj["url"], obj["path"])
@@ -660,7 +664,7 @@ class Daemon(object):
                         actual[host]["ip"] = nginx_line.split("/")[2].split(":")[0]
 
         if expected != actual:
-        
+
             self.differs(expected, actual)
             self.execute("rm -f /etc/nginx/conf.d/*.conf")
 
@@ -679,8 +683,8 @@ class Daemon(object):
         for service in [service.obj for service in pykube.Service.objects(self.kube).filter(namespace=pykube.all)]:
 
             if (
-                "type" not in service["spec"] or service["spec"]["type"] != "LoadBalancer" or 
-                "ports" not in service["spec"] or "selector" not in service["spec"] or 
+                "type" not in service["spec"] or service["spec"]["type"] != "LoadBalancer" or
+                "ports" not in service["spec"] or "selector" not in service["spec"] or
                 "namespace" not in service["metadata"]
             ):
                 continue
@@ -711,7 +715,7 @@ class Daemon(object):
             node_ips = {}
 
             for pod in [pod.obj for pod in pykube.Pod.objects(self.kube).filter(
-                namespace=service["metadata"]["namespace"], 
+                namespace=service["metadata"]["namespace"],
                 selector=service["spec"]["selector"]
             )]:
                 if "nodeName" in pod["spec"] and "podIP" in pod["status"]:

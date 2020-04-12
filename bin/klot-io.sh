@@ -13,6 +13,7 @@ sudo hostnamectl --pretty set-hostname klot-io
 sudo service avahi-daemon restart
 
 echo "installing klot-io requirements"
+sudo apt-get update
 sudo apt-get install -y git python-pip gcc python-dev libsystemd-dev python-avahi
 sudo mkdir -p /opt/klot-io/
 sudo cp /boot/klot-io/requirements.txt /opt/klot-io/requirements.txt
