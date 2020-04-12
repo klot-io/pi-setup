@@ -3,3 +3,4 @@ clusters
 secret
 images
 *.pyc
+.DS_Store

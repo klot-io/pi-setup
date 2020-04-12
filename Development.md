@@ -33,15 +33,15 @@ The namespace your app will use. Right now, we assume one namespace per App. I h
 
 ### spec.manifests
 
-Manifests are the resources to be created when your App is installed. 
+Manifests are the resources to be created when your App is installed.
 
-Paths in this repo for manifests to apply to Kubernetes in this order. 
+Paths in this repo for manifests to apply to Kubernetes in this order.
 
 ### spec.labels
 
-Labels are optional, used to ensure special services end up on the appropriate nodes. 
+Labels are optional, used to ensure special services end up on the appropriate nodes.
 
-For example, redis.klot.io by default saves to disk.  So if a Redis Pod dies you want it to come back with that data from disk. 
+For example, redis.klot.io by default saves to disk.  So if a Redis Pod dies you want it to come back with that data from disk.
 
 Normally Pods can be created on any node, so to ensure consistency redis.klot.io requires that it's only installed on the node labeled as such:
 
@@ -54,11 +54,11 @@ spec:
     master: true
 ```
 
-The means a Kubernetes node has to be labeled `redis.klot.io/storage=enabled` for redis.klot.io to be installed on it.  
+The means a Kubernetes node has to be labeled `redis.klot.io/storage=enabled` for redis.klot.io to be installed on it.
 
 The master setting here means it's ok to install this on the Kubernetes master.
 
-I often do this because I'll back my master with an SSD hard drive, so it's more durable than a regular Pi. 
+I often do this because I'll back my master with an SSD hard drive, so it's more durable than a regular Pi.
 
 You can see this in the `Deployment` in `kubernetes/db.yaml`
 
@@ -101,7 +101,7 @@ spec:
           protocol: TCP
 ```
 
-First, with `volumes` and `volumeMounts` we're having `/home/pi/storage/redis.klot.io` on the host machine map to `/var/lib/redis` in the Pod. If the Pod goes away and comes back, it's data will still be there. 
+First, with `volumes` and `volumeMounts` we're having `/home/pi/storage/redis.klot.io` on the host machine map to `/var/lib/redis` in the Pod. If the Pod goes away and comes back, it's data will still be there.
 
 Second, with `nodeSelector` we're saying only this on nodes labeled with `redis.klot.io/storage=enabled`
 
@@ -120,9 +120,9 @@ spec:
       repo: klot-io/redis
 ```
 
-### spec.requires 
+### spec.requires
 
-Array of requirements, containing a name and source. 
+Array of requirements, containing a name and source.
 
 ### spec.requires.name
 
@@ -142,7 +142,7 @@ Set to `github.com` to use GitHub (only sire currently supported)
 
 ### spec.requires.source.repo
 
-Set to the repo to use.  Assumes there's a `klot-io-app.yaml` at the top level of the repo. 
+Set to the repo to use.  Assumes there's a `klot-io-app.yaml` at the top level of the repo.
 
 ## URL
 
@@ -171,15 +171,15 @@ Host to use. It'll build the URL as protocol://host.
 
 This assumes you have a Mac.  I will eventually verify this works on Linux or modify til it does.  Same with Windows.
 
-kubectl is the command line tool for interacting with Kuberentes.  While the [GUI](GUI.md) is great and makes lots of things easier, you really should become familiar with kubectl if you want to improve your Kubernetes game. 
+kubectl is the command line tool for interacting with Kuberentes.  While the [GUI](GUI.md) is great and makes lots of things easier, you really should become familiar with kubectl if you want to improve your Kubernetes game.
 
 - Check out this repo and set up a cluster via [Install](Install.md)
 - Type `make kubectl`
   - This will install kubectl if you don't already have it
-- It'll ask you for the cluster and password. 
+- It'll ask you for the cluster and password.
   - Use the name of the cluster you configured the Master with
-- It'll create a context for this cluster (cluster-klot-io). 
-- If you have an existing `~/.kube/config` it'll merge else it'll just create a new ~/.kube/config file. 
+- It'll create a context for this cluster (cluster-klot-io).
+- If you have an existing `~/.kube/config` it'll merge else it'll just create a new ~/.kube/config file.
 
 You can see if it worked by checking nodes:
 
@@ -187,14 +187,14 @@ You can see if it worked by checking nodes:
 kubectl get nodes
 ```
 
-From here, you best check out [Kubernetes](https://kubernetes.io/docs/tutorials/) understanding that you've already created a cluster. You will be able do things like deploying an App manually. 
+From here, you best check out [Kubernetes](https://kubernetes.io/docs/tutorials/) understanding that you've already created a cluster. You will be able do things like deploying an App manually.
 
 # Services
 
 If you want to hack on the different [Services](http://www.klot.io/#/overview), you can modify them right here and update your local cluster with them.
 
 - First setup your cluster `make cluster`
-- It'll ask you for the cluster and password. 
+- It'll ask you for the cluster and password.
   - Use the name of the cluster you configured the Master with
 - Enter the worker nodes one by one
 - It'll create local information to use later
@@ -202,7 +202,7 @@ If you want to hack on the different [Services](http://www.klot.io/#/overview), 
 Like now.  To update all the services across your cluster:
 
 - Type `make update`
-- It'll ask you for the cluster and password. 
+- It'll ask you for the cluster and password.
   - Use the name of the cluster you configured the Master with
 - What the scroll do the updating
 
@@ -219,7 +219,7 @@ sudo journalctl -u nginx          # GUI
 
 ## GUI
 
-The GUI is located in the [www/](www/) directory here.  It's a [doTRoute.js](http://gaf3.github.io/dotroute/) JavaScript one pager.  Haven't heard of doTRoute.js?  Ya, that's because I created and usually don't bother with any self promotion. 
+The GUI is located in the [www/](www/) directory here.  It's a [doTRoute.js](http://gaf3.github.io/dotroute/) JavaScript one pager.  Haven't heard of doTRoute.js?  Ya, that's because I created and usually don't bother with any self promotion.
 
 The main files you care about are the *.html which utilize [doT.js](http://olado.github.io/doT/) templating and the controller is (service.js)[www/js/service.js].
 
@@ -229,15 +229,15 @@ The API is [lib/manage.py](lib/manage.py). It's a regular ol' [Flask App](https:
 
 ## Daemon
 
-The Daemon is at [lib/config.py](lib/config.py). It's a basic Python Daemon that reads config files from on the Pi and implements those settings. It also does a little auto discovery magic that times a little time so the API can respond snappily. 
+The Daemon is at [lib/config.py](lib/config.py). It's a basic Python Daemon that reads config files from on the Pi and implements those settings. It also does a little auto discovery magic that times a little time so the API can respond snappily.
 
 ## DNS
 
-The DNS server is at [lib/name.py](lib/name.py). It's a simple name server that queries Kuberentes and responds to service names accordingly, passing the rest through to 8.8.8.8. 
+The DNS server is at [lib/name.py](lib/name.py). It's a simple name server that queries Kuberentes and responds to service names accordingly, passing the rest through to 8.8.8.8.
 
 # Console
 
-I use this to make the images.  
+I use this to make the images.
 
 ## requirements
 
@@ -261,7 +261,7 @@ If you want ot make your own image, go right ahead.
 
 ## requirements
 
-- This assumes you're using a Mac. 
+- This assumes you're using a Mac.
 - You're on the same network as the Pi will be
 - Console set up (above)
 - docker
@@ -272,23 +272,12 @@ If you want ot make your own image, go right ahead.
 On Mac:
 
 ```
-# Burn the latest raspbian image (2018-11-13-raspbian-stretch-lite.zip currently) first then, pop it out and back in, then
+# Burn the latest raspbian image (images/2019-09-26-raspbian-buster-lite.zip currently) first then, pop it out and back in, then
 make build
 make boot
 ```
 
 Eject, pop into Pi, connect serial cable, power on, and create a console.
-
-## enable tmpfs
-
-Login when prompted (pi/raspberry)
-
-```
-cd /boot/klot-io/bin
-./tmpfs.sh
-```
-
-Will reboot when done.
 
 ## enable wifi
 
@@ -301,29 +290,9 @@ cd /boot/klot-io/bin
 ./wifi.sh
 ```
 
-Answer questions for ssid and psk. 
+Answer questions for ssid and psk.
 
 Will reboot when done.
-
-## install kubernetes
-
-Login when prompted (pi/raspberry)
-
-```
-cd /boot/klot-io/bin
-./kubernetes.sh
-```
-
-Will reboot when done.
-
-## download docker images
-
-Login when prompted (pi/raspberry)
-
-```
-cd /boot/klot-io/bin
-./images.sh
-```
 
 ## install klot-io services
 
@@ -336,15 +305,27 @@ Will install and run the config daemon and then tails its logs to make sure it's
 
 The daemon sets hostname to klot-io, change pi password to 'kloudofthings', and reset network to eth0 (if needed)
 
+## enable tmpfs
+
+```
+./tmpfs.sh
+```
+
 ## export image to Mac
 
-Shutdown the pi, eject the card, place into the Mac. 
+Shutdown the Pi.
+
+```
+sudo shutdown now
+```
+
+Eject the card, place into the Mac.
 
 ```
 make export
 ```
 
-This will copy the SD image to the images/ directory as pi-(version>).img with (verison) from the Makefile. Fair warning, this takes for forever.
+This will copy the SD image to the images/ directory asmake zip pi-(version>).img with (verison) from the Makefile. Fair warning, this takes forever.
 
 ## shrink image to more manageable size
 
@@ -358,5 +339,4 @@ make shrink
 make zip
 ```
 
-This will shrink down images/pi-(version>).img to a more manageable size. 
-
+This will shrink down images/pi-(version>).img to a more manageable size.

@@ -3,7 +3,7 @@
 set -e
 
 echo "setting account password"
-echo 'pi:cloudofthings' | sudo chpasswd
+echo 'pi:kloudofthings' | sudo chpasswd
 
 echo "setting hostname to klot-io"
 sudo sed -i s/raspberrypi/klot-io/g /etc/hosts
@@ -13,7 +13,8 @@ sudo hostnamectl --pretty set-hostname klot-io
 sudo service avahi-daemon restart
 
 echo "installing klot-io requirements"
-sudo apt-get install -y python-pip gcc python-dev libsystemd-dev python-avahi
+sudo apt-get update
+sudo apt-get install -y git python-pip gcc python-dev libsystemd-dev python-avahi
 sudo mkdir -p /opt/klot-io/
 sudo cp /boot/klot-io/requirements.txt /opt/klot-io/requirements.txt
 sudo pip install requests==2.21
@@ -38,6 +39,7 @@ sudo cp /boot/klot-io/service/klot-io-dns.service /etc/systemd/system/
 
 echo "installing klot-io daemon"
 sudo cp /boot/klot-io/lib/config.py /opt/klot-io/lib/
+sudo cp /boot/klot-io/bin/k3s.sh /opt/klot-io/bin/
 sudo cp /boot/klot-io/bin/daemon.py /opt/klot-io/bin/
 sudo cp /boot/klot-io/service/klot-io-daemon.service /etc/systemd/system/
 

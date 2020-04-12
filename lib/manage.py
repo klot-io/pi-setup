@@ -108,11 +108,11 @@ class Log(flask_restful.Resource):
 
             if not line:
                 break
-            
+
             lines.insert(0, {
                 "timestamp": calendar.timegm(line["__REALTIME_TIMESTAMP"].timetuple()),
                 "message": line['MESSAGE']
-            }) 
+            })
 
         return {"lines": lines}
 
@@ -314,21 +314,17 @@ class Status(flask_restful.Resource):
     @require_auth
     def get(self):
 
-        if not os.path.exists("/opt/klot-io/config/kubernetes.yaml"):
+        if not os.path.exists("/var/lib/rancher/k3s"):
 
             status = "Uninitialized"
 
-        elif os.path.exists("/etc/kubernetes/bootstrap-kubelet.conf"):
+        elif os.path.exists("/etc/systemd/system/k3s-agent.service"):
 
             status = "Joined"
 
-        elif not os.path.exists("/etc/kubernetes/admin.conf"):
-
-            status = "Initializing"
-
         elif not os.path.exists("/home/pi/.kube/config"):
 
-            status = "Creating"
+            status = "Initializing"
 
         else:
 
@@ -483,14 +479,20 @@ class Node(flask_restful.Resource):
         if self.name not in flask.request.json:
             return {"error": "missing %s" % self.name}, 400
 
+        node = flask.request.json[self.name]
+
         try:
+
+            pykube.Node.objects(kube()).get(name=node).delete()
+
+            os.system("sudo sed -i '/%s/d' /var/lib/rancher/k3s/server/cred/node-passwd" % node)
 
             config = Config.load()
 
             config["kubernetes"] = {"role": "reset"}
 
             response = requests.post(
-                "http://%s.local/api/config" % flask.request.json[self.name],
+                "http://%s.local/api/config" % node,
                 headers={"x-klot-io-password": config["account"]["password"]},
                 json={"config": config}
             )
@@ -499,7 +501,7 @@ class Node(flask_restful.Resource):
 
         except pykube.ObjectDoesNotExist:
 
-            return {"error": "node not found"}, 404
+            return {"error": "node %s not found" % flask.request.json[self.name]}, 404
 
 
 class Namespace(flask_restful.Resource):
@@ -622,9 +624,9 @@ class App(flask_restful.Resource):
 
         app = {
             "name": obj["metadata"]["name"],
-            "version": obj["metadata"]["version"],
+            "version": obj["spec"].get("version", ''),
             "namespace": obj["spec"]["namespace"],
-            "description": obj["metadata"]["description"],
+            "description": obj["spec"].get("description", ''),
             "action": "Download",
             "status": "Discovered"
         }
@@ -867,7 +869,7 @@ class Label(flask_restful.Resource):
         obj["metadata"]["labels"]["%s/%s" % (label["app"], label["name"])] = label["value"]
 
         pykube.Node(kube(), obj).replace()
-                        
+
         return {"message": "%s labeled %s/%s=%s" % (label["node"], label["app"], label["name"], label["value"])}
 
     @require_auth
@@ -904,5 +906,5 @@ class Label(flask_restful.Resource):
             del obj["metadata"]["labels"]["%s/%s" % (label["app"], label["name"])]
 
         pykube.Node(kube(), obj).replace()
-                        
+
         return {"message": "%s unlabeled %s/%s" % (label["node"], label["app"], label["name"])}
