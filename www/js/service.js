@@ -192,7 +192,7 @@ DRApp.controller("Base",null,{
     config_switch: function() {
         this.it.message = this.check;
         this.check += ".";
-        window.location.hostname.split('.')[1] 
+        window.location.hostname.split('.')[1]
         var response = $.ajax({url: this.switch + "/api/health", async: false});
         if (response.status == 200) {
             window.location = this.switch;
@@ -257,7 +257,7 @@ DRApp.controller("Base",null,{
         this.application.render(this.it);
         this.start();
     },
-    pod_delete(pod) {
+    pod_delete: function(pod) {
         if (confirm("Are you sure you want to delete " + pod + "?")) {
             this.rest("DELETE","/api/pod/" + pod);
             this.application.refresh();
@@ -318,7 +318,7 @@ DRApp.controller("Base",null,{
         this.application.render(this.it);
         this.start();
     },
-    app_label(label_name, node_name) {
+    app_label: function(label_name, node_name) {
             var label = {
                 app: this.it.app.name,
                 name: label_name,
@@ -332,13 +332,13 @@ DRApp.controller("Base",null,{
         }
         this.application.refresh();
     },
-    app_action(name, action) {
+    app_action: function(name, action) {
         if (action != "Uninstall" || confirm("Are you sure you want to uninstall " + name + "?")) {
             this.rest("PATCH","/api/app/" + name, {action: action});
             this.application.refresh();
         }
     },
-    app_delete(name) {
+    app_delete: function(name) {
         this.rest("DELETE","/api/app/" + name);
         if (this.application.current.path.app_name) {
             this.application.go('apps');
