@@ -16,7 +16,6 @@ local.copy("config/account.yaml")
 local.copy("config/network.yaml")
 
 local.directory("kubernetes")
-local.copy("kubernetes/kube-flannel.yml")
 local.copy("kubernetes/klot-io-app-crd.yaml")
 
 local.copy("requirements.txt", "requirements.txt")

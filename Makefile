@@ -1,6 +1,6 @@
 ACCOUNT=klotio
 IMAGE=pi-setup
-VERSION?=0.2
+VERSION?=0.3
 VOLUMES=-v ${PWD}/boot_requirements.txt:/opt/klot-io/requirements.txt \
         -v ${PWD}/etc/:/opt/klot-io/etc/\
         -v ${PWD}/lib/:/opt/klot-io/lib/ \

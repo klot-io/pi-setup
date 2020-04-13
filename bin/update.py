@@ -28,8 +28,11 @@ for node in nodes:
 
     deploy = develop.Deploy(node, config["password"])
 
+    deploy.update("klot-io-dns", "bin/dns.py")
     deploy.update("klot-io-dns", "lib/name.py")
+    deploy.update("klot-io-daemon", "bin/daemon.py")
     deploy.update("klot-io-daemon", "lib/config.py")
+    deploy.update("klot-io-api", "bin/api.py")
     deploy.update("klot-io-api", "lib/manage.py")
     deploy.update("nginx", "www")
 
