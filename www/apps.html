@@ -1,6 +1,13 @@
 {{#def.Header}}
 <div class="uk-overflow-container">
     <h2>Apps</h2>
+    {{~it.apps :app}}
+        {{?app.action != "Uninstall" && app.status == "Installed" && app.url}}
+            <a class="uk-button uk-button-primary" href="{{!app.url}}" target="{{!app.name}}">{{=app.name}}</a>
+        {{?}}
+    {{~}}
+    <br/>
+    <br/>
     {{?it.message}}
     <div class="uk-alert uk-alert-success">
         {{=it.message}}
@@ -9,12 +16,12 @@
     <form class="uk-form">
         <div class="uk-form-row">
             Discover <input id="name" type="text" placeholder="app" class="uk-form-width-medium"/> from
-            <input 
+            <input
                 type="radio" name="from" value="github"
                 OnClick="DRApp.current.controller.apps_change();"
             /> GitHub
-            <input 
-                type="radio" name="from" value="url" 
+            <input
+                type="radio" name="from" value="url"
                 OnClick="DRApp.current.controller.apps_change();"
             /> URL
         </div>
@@ -65,9 +72,6 @@
                             Delete
                         </button>
                     {{??app.action != "Uninstall" && app.status == "Installed"}}
-                        {{?app.url}}
-                            <a class="uk-button uk-button-primary" href="{{!app.url}}" target="{{!app.name}}">Open</a>
-                        {{?}}
                         <button type="button" onClick="DRApp.current.controller.app_action('{{!app.name}}', 'Uninstall');" class="uk-button uk-button-primary">
                             Uninstall
                         </button>
