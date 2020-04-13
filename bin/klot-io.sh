@@ -14,11 +14,10 @@ sudo service avahi-daemon restart
 
 echo "installing klot-io requirements"
 sudo apt-get update
-sudo apt-get install -y git python-pip gcc python-dev libsystemd-dev python-avahi
+sudo apt-get install -y git python3-pip gcc python3-dev libsystemd-dev
 sudo mkdir -p /opt/klot-io/
 sudo cp /boot/klot-io/requirements.txt /opt/klot-io/requirements.txt
-sudo pip install requests==2.21
-sudo pip install -r /opt/klot-io/requirements.txt
+sudo pip3 install -r /opt/klot-io/requirements.txt
 sudo mkdir -p /opt/klot-io/lib/
 sudo mkdir -p /opt/klot-io/bin/
 
@@ -29,7 +28,6 @@ sudo cp /boot/klot-io/config/network.yaml /opt/klot-io/config/
 
 echo "install kubernetes files"
 sudo mkdir -p /opt/klot-io/kubernetes/
-sudo cp /boot/klot-io/kubernetes/kube-flannel.yml /opt/klot-io/kubernetes/
 sudo cp /boot/klot-io/kubernetes/klot-io-app-crd.yaml /opt/klot-io/kubernetes/
 
 echo "installing klot-io dns"

@@ -190,7 +190,7 @@ This is how to boot off of an SSD hard drive for installation. I put this here b
 
 1. On your local workstation, download [pi-0.2.img.zip](https://klot-io.sfo2.cdn.digitaloceanspaces.com/pi-0.2.img.zip).
 2. Burn this image to each of your SSD.
-3. (Optional) `make config`.
+3. (Optional - set kubernetes to 'reset' for now, just safer) `make config`.
 4. Boot the Pi with the SSD attached (no SD card).
 5. `sudo lsblk` to determine the partition (usually sda).
 6. `sudo fdisk /dev/sda` to repartition.

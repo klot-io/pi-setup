@@ -92,17 +92,17 @@ class Log(flask_restful.Resource):
         import systemd.journal
 
         if service not in ["dns", "daemon", "api", "gui"]:
-            return {"error": "invalid service: %s" % sevice}, 400
+            return {"error": f"invalid service: {sevice}"}, 400
 
         reader = systemd.journal.Reader()
-        reader.add_match(_SYSTEMD_UNIT="nginx.service" if service == "gui" else "klot-io-%s.service" % service)
+        reader.add_match(_SYSTEMD_UNIT="nginx.service" if service == "gui" else f"klot-io-{service}.service")
         reader.seek_tail()
 
         back = int(flask.request.args["back"]) if "back" in flask.request.args else 60
 
         lines = []
 
-        for index in xrange(back):
+        for index in range(back):
 
             line = reader.get_previous()
 
@@ -212,8 +212,8 @@ class Config(flask_restful.Resource):
         originals = {}
 
         for section in cls.sections:
-            if os.path.exists("/opt/klot-io/config/%s.yaml" % section):
-                with open("/opt/klot-io/config/%s.yaml" % section, "r") as config_file:
+            if os.path.exists(f"/opt/klot-io/config/{section}.yaml"):
+                with open(f"/opt/klot-io/config/{section}.yaml", "r") as config_file:
                     originals[section] = yaml.safe_load(config_file)
             else:
                 originals[section] = {}
@@ -224,7 +224,7 @@ class Config(flask_restful.Resource):
     def options(self):
 
         if self.name not in flask.request.json:
-            return {"error": "missing %s" % self.name}
+            return {"error": f"missing {self.name}"}
 
         fields = self.fields(flask.request.json[self.name])
 
@@ -237,7 +237,7 @@ class Config(flask_restful.Resource):
     def post(self):
 
         if self.name not in flask.request.json:
-            return {"error": "missing %s" % self.name}, 400
+            return {"error": f"missing {self.name}"}, 400
 
         fields = self.fields(flask.request.json[self.name])
 
@@ -245,7 +245,7 @@ class Config(flask_restful.Resource):
             return {"fields": fields.to_list(), "errors": fields.errors}, 400
 
         for section in self.sections:
-            with open("/opt/klot-io/config/%s.yaml" % section, "w") as config_file:
+            with open(f"/opt/klot-io/config/{section}.yaml", "w") as config_file:
                 yaml.safe_dump(fields[section].values, config_file, default_flow_style=False)
 
         return {self.name: flask.request.json[self.name]}, 202
@@ -290,7 +290,7 @@ class Kubectl(flask_restful.Resource):
             return {"error": "kubectl config not found"}, 404
 
         if self.name not in flask.request.json:
-            return {"error": "missing %s" % self.name}
+            return {"error": f"missing {self.name}"}
 
         remote = flask.request.json[self.name]
 
@@ -338,8 +338,8 @@ class Status(flask_restful.Resource):
                         elif status == "NotReady":
                             status = "Master"
 
-        load = [float(value) for value in subprocess.check_output("uptime").split("age: ")[-1].split(', ')]
-        memory = subprocess.check_output("free").split("\n")[:-1]
+        load = [float(value) for value in subprocess.check_output("uptime").decode('utf-8').split("age: ")[-1].split(', ')]
+        memory = subprocess.check_output("free").decode('utf-8').split("\n")[:-1]
         titles = memory[0].split()
         values = memory[1].split()[1:]
         free = {title: int(values[index]) for index, title in enumerate(titles)}
@@ -374,7 +374,7 @@ class Node(flask_restful.Resource):
                 try:
 
                     response = requests.get(
-                        "http://%s.local/api/status" % node["name"], timeout=5,
+                        f"http://{node['name']}.local/api/status", timeout=5,
                         headers={"x-klot-io-password": flask.request.headers["x-klot-io-password"]}
                     )
 
@@ -446,10 +446,10 @@ class Node(flask_restful.Resource):
             return {"error": "uninitialized node not found"}, 404
 
         if self.name not in flask.request.json:
-            return {"error": "missing %s" % self.name}, 400
+            return {"error": f"missing {self.name}"}, 400
 
         if "name" not in flask.request.json[self.name]:
-            return {"error": "missing %s.name" % self.name}, 400
+            return {"error": f"missing {self.name}.name"}, 400
 
         config = Config.load()
 
@@ -477,7 +477,7 @@ class Node(flask_restful.Resource):
     def delete(self):
 
         if self.name not in flask.request.json:
-            return {"error": "missing %s" % self.name}, 400
+            return {"error": f"missing {self.name}"}, 400
 
         node = flask.request.json[self.name]
 
@@ -485,14 +485,14 @@ class Node(flask_restful.Resource):
 
             pykube.Node.objects(kube()).get(name=node).delete()
 
-            os.system("sudo sed -i '/%s/d' /var/lib/rancher/k3s/server/cred/node-passwd" % node)
+            os.system(f"sudo sed -i '/{node}/d' /var/lib/rancher/k3s/server/cred/node-passwd")
 
             config = Config.load()
 
             config["kubernetes"] = {"role": "reset"}
 
             response = requests.post(
-                "http://%s.local/api/config" % node,
+                f"http://{node}.local/api/config",
                 headers={"x-klot-io-password": config["account"]["password"]},
                 json={"config": config}
             )
@@ -501,7 +501,7 @@ class Node(flask_restful.Resource):
 
         except pykube.ObjectDoesNotExist:
 
-            return {"error": "node %s not found" % flask.request.json[self.name]}, 404
+            return {"error": f"node {flask.request.json[self.name]} not found"}, 404
 
 
 class Namespace(flask_restful.Resource):
@@ -690,49 +690,49 @@ class AppLP(App):
         elif "site" in source and source["site"] == "github.com":
 
             if "repo" not in source:
-                return {"error": "missing source.repo for %s" % source["site"]}, 400
+                return {"error": f"missing source.repo for {source['site']}"}, 400
 
             repo = source["repo"]
             version = source["version"] if "version" in source else "master"
 
-            url = "https://raw.githubusercontent.com/%s/%s/" % (repo, version)
+            url = f"https://raw.githubusercontent.com/{repo}/{version}/"
 
         else:
 
-            return {"error": "need url or github %s" % source}, 400
+            return {"error": f"need url or github {source}"}, 400
 
         if url.endswith("/"):
 
             path = source["path"] if "path" in source else "klot-io-app.yaml"
-            url = "%s/%s" % (url, path)
+            url = f"{url}/{path}"
 
         response = requests.get(url)
 
         if response.status_code != 200:
-            return {"error from %s" % url: response.text}, response.status_code
+            return {f"error from {url}": response.text}, response.status_code
 
         obj = yaml.safe_load(response.text)
 
         if not isinstance(obj, dict):
-            return {"error": "%s produced non dict %s" % (source, obj)}, 400
+            return {"error": f"{source} produced non dict {obj}"}, 400
 
         if obj["apiVersion"] != "klot.io/v1":
-            return {"error": "%s apiVersion not klot.io/v1 %s" % (source, obj)}, 400
+            return {"error": f"{source} apiVersion not klot.io/v1 {obj}"}, 400
 
         if obj["kind"] != "App":
-            return {"error": "%s kind not App %s" % (source, obj)}, 400
+            return {"error": f"{source} kind not App {obj}"}, 400
 
         if "spec" not in obj:
-            return {"error": "%s missing spec %s" % (source, obj)}, 400
+            return {"error": f"{source} missing spec {obj}"}, 400
 
         if "metadata" not in obj:
-            return {"error": "%s missing metadata %s" % (source, obj)}, 400
+            return {"error": f"{source} missing metadata {obj}"}, 400
 
         if "version" not in obj["metadata"]:
-            return {"error": "%s missing metadata.version %s" % (source, obj)}, 400
+            return {"error": f"{source} missing metadata.version {obj}"}, 400
 
         if name != obj["metadata"].get("name"):
-            return {"error": "%s name does not match %s %s" % (source, name, obj)}, 400
+            return {"error": f"{source} name does not match {name} {obj}"}, 400
 
         obj["source"] = source
 
@@ -741,7 +741,7 @@ class AppLP(App):
 
         pykube.App(kube(), obj).create()
 
-        return {"message": "%s queued for preview" % obj["metadata"]["name"]}, 202
+        return {"message": f"{obj['metadata']['name']} queued for preview"}, 202
 
 class AppRIU(App):
 
@@ -776,11 +776,11 @@ class AppRIU(App):
         obj = pykube.App.objects(kube()).filter().get(name=name).obj
 
         if "status" in obj and obj["status"] == "Installed":
-            return {"error": "Can't delete Installed %s. Uninstall first." % name}
+            return {"error": f"Can't delete Installed {name}. Uninstall first."}
 
         pykube.App(kube(), obj).delete()
 
-        return {"message": "%s deleted" % name}, 201
+        return {"message": f"{name} deleted"}, 201
 
 
 class Label(flask_restful.Resource):
@@ -821,19 +821,19 @@ class Label(flask_restful.Resource):
                 for node_label in obj["metadata"]["labels"]:
                     for app_label in labels:
                         if (
-                            node_label == "%s/%s" % (app_label["app"], app_label["name"]) and
+                            node_label == f"{app_label['app']}/{app_label['name']}" and
                             obj["metadata"]["labels"][node_label] == app_label["value"]
                         ):
                             app_label["nodes"].append(obj["metadata"]["name"])
 
-        return {self.plural: sorted(labels, key=lambda label: "%s/%s=%s" % (label["app"], label["name"], label["value"]))}
+        return {self.plural: sorted(labels, key=lambda label: f"{label['app']}/{label['name']}={label['value']}")}
 
     @require_auth
     @require_kube
     def post(self):
 
         if self.singular not in flask.request.json:
-            return {"error": "missing %s" % self.singular}, 400
+            return {"error": f"missing {self.singular}"}, 400
 
         label = flask.request.json[self.singular]
 
@@ -841,7 +841,7 @@ class Label(flask_restful.Resource):
 
         for field in ["app", "name", "value", "node"]:
             if field not in label:
-                errors.append("missing %s.%s" % (self.singular, field))
+                errors.append(f"missing {self.singular}.{field}")
 
         if errors:
             return {"errors": errors}, 400
@@ -851,33 +851,33 @@ class Label(flask_restful.Resource):
         for obj in [app.obj for app in pykube.App.objects(kube()).filter()]:
             if "labels" in obj["spec"]:
                 for app_label in obj["spec"]["labels"]:
-                    app_labels["%s/%s=%s" % (obj["metadata"]["name"], app_label["name"], app_label["value"])] = app_label
+                    app_labels[f"{obj['metadata']['name']}/{app_label['name']}={app_label['value']}"] = app_label
 
-        if "%s/%s=%s" % (label["app"], label["name"], label["value"]) not in app_labels:
-            return {"error": "invalid label %s/%s=%s" % (label["app"], label["name"], label["value"])}, 400
+        if f"{label['app']}/{label['name']}={label['value']}" not in app_labels:
+            return {"error": f"invalid label {label['app']}/{label['name']}={label['value']}"}, 400
 
-        app_label = app_labels["%s/%s=%s" % (label["app"], label["name"], label["value"])]
+        app_label = app_labels[f"{label['app']}/{label['name']}={label['value']}"]
 
         obj = pykube.Node.objects(kube()).filter().get(name=flask.request.json[self.singular]["node"]).obj
 
         if obj["metadata"]["name"] == platform.node() and ("master" not in app_label or not app_label["master"]):
-            return {"error": "can't label master with %s/%s=%s" % (label["app"], label["name"], label["value"])}, 400
+            return {"error": f"can't label master with {label['app']}/{label['name']}={label['value']}"}, 400
 
         if "labels" not in obj["metadata"]:
             obj["metadata"]["labels"] = {}
 
-        obj["metadata"]["labels"]["%s/%s" % (label["app"], label["name"])] = label["value"]
+        obj["metadata"]["labels"][f"{label['app']}/{label['name']}"] = label["value"]
 
         pykube.Node(kube(), obj).replace()
 
-        return {"message": "%s labeled %s/%s=%s" % (label["node"], label["app"], label["name"], label["value"])}
+        return {"message": f"{label['node']} labeled {label['app']}/{label['name']}={label['value']}"}
 
     @require_auth
     @require_kube
     def delete(self):
 
         if self.singular not in flask.request.json:
-            return {"error": "missing %s" % self.singular}, 400
+            return {"error": f"missing {self.singular}"}, 400
 
         label = flask.request.json[self.singular]
 
@@ -885,7 +885,7 @@ class Label(flask_restful.Resource):
 
         for field in ["app", "name", "node"]:
             if field not in label:
-                errors.append("missing %s.%s" % (self.singular, field))
+                errors.append(f"missing {self.singular,}.{field}")
 
         if errors:
             return {"errors": errors}, 400
@@ -895,16 +895,16 @@ class Label(flask_restful.Resource):
         for obj in [app.obj for app in pykube.App.objects(kube()).filter()]:
             if "labels" in obj["spec"]:
                 for app_label in obj["spec"]["labels"]:
-                    app_labels.append("%s/%s" % (obj["metadata"]["name"], app_label["name"]))
+                    app_labels.append(f"{obj['metadata']['name']}/{app_label['name']}")
 
-        if "%s/%s" % (label["app"], label["name"]) not in app_labels:
-            return {"error": "invalid label %s/%s" % (label["app"], label["name"])}, 400
+        if f"{label['app']}/{label['name']}" not in app_labels:
+            return {"error": f"invalid label {label['app']}/{label['name']}"}, 400
 
         obj = pykube.Node.objects(kube()).filter().get(name=flask.request.json[self.singular]["node"]).obj
 
-        if "labels" in obj["metadata"] and "%s/%s" % (label["app"], label["name"]) in obj["metadata"]["labels"]:
-            del obj["metadata"]["labels"]["%s/%s" % (label["app"], label["name"])]
+        if "labels" in obj["metadata"] and f"{label['app']}/{label['name']}" in obj["metadata"]["labels"]:
+            del obj["metadata"]["labels"][f"{label['app']}/{label['name']}"]
 
         pykube.Node(kube(), obj).replace()
 
-        return {"message": "%s unlabeled %s/%s" % (label["node"], label["app"], label["name"])}
+        return {"message": f"{label['node']} unlabeled {label['app']}/{label['name']}"}
