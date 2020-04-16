@@ -338,6 +338,12 @@ class Status(flask_restful.Resource):
                         elif status == "NotReady":
                             status = "Master"
 
+            if status == "Workers":
+                for obj in [app.obj for app in pykube.App.objects(kube()).filter()]:
+                    if obj.get("status") == "Installed" and "url" in obj:
+                        status = "Apps"
+                        break
+
         load = [float(value) for value in subprocess.check_output("uptime").decode('utf-8').split("age: ")[-1].split(', ')]
         memory = subprocess.check_output("free").decode('utf-8').split("\n")[:-1]
         titles = memory[0].split()
