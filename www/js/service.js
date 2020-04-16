@@ -30,7 +30,8 @@ DRApp.STATUSES = {
     "Creating": 4,
     "NotReady": 5,
     "Master": 6,
-    "Workers": 7
+    "Workers": 7,
+    "Apps": 8
 };
 
 DRApp.status =  "Login";
@@ -95,7 +96,13 @@ DRApp.controller("Base",null,{
         } else if (DRApp.status == "Workers") {
             this.application.go("apps");
         } else {
+            this.loading();
+            this.update_status();
+            this.it = {
+                apps: this.rest("GET","/api/app").apps
+            }
             this.application.render(this.it);
+            this.start();
         }
     },
     login: function() {
@@ -361,6 +368,7 @@ DRApp.template("Pods",DRApp.load("pods"),null,DRApp.partials);
 DRApp.template("Pod",DRApp.load("pod"),null,DRApp.partials);
 DRApp.template("Nodes",DRApp.load("nodes"),null,DRApp.partials);
 DRApp.template("Apps",DRApp.load("apps"),null,DRApp.partials);
+DRApp.template("Manage",DRApp.load("manage"),null,DRApp.partials);
 DRApp.template("App",DRApp.load("app"),null,DRApp.partials);
 
 DRApp.route("home","/","Home","Base", "home")
@@ -374,4 +382,5 @@ DRApp.route("pods","/pod","Pods","Base","pods", "stop");
 DRApp.route("pod","/pod/{pod}","Pod","Base","pod", "stop");
 DRApp.route("nodes","/node","Nodes","Base","nodes", "stop");
 DRApp.route("apps","/app","Apps","Base","apps", "stop");
+DRApp.route("manage","/manage","Manage","Base","manage", "stop");
 DRApp.route("app","/app/{app_name}","App","Base","app", "stop");

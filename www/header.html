@@ -3,6 +3,11 @@
     <h1 class="uk-text-center">Kloud of Things I/O</h1>
     <nav class="uk-navbar uk-margin-bottom">
         <ul class="uk-navbar-nav">
+            {{? DRApp.STATUSES[DRApp.status] >= DRApp.STATUSES["Apps"] }}
+            <li {{? DRApp.current.paths[0] == '' }}class="uk-active"{{?}}>
+                <a href="{{=DRApp.link('home')}}">Home</a>
+            </li>
+            {{?}}
             {{? DRApp.STATUSES[DRApp.status] >= DRApp.STATUSES["Workers"] }}
             <li {{? DRApp.current.paths[0] == 'app' }}class="uk-active"{{?}}>
                 <a href="{{=DRApp.link('apps')}}">Apps</a>
