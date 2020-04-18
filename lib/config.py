@@ -57,6 +57,13 @@ class AppException(Exception):
 
 class Daemon(object):
 
+    ACTIONS = {
+        "Discover": 0,
+        "Define": 1,
+        "Download": 2,
+        "Install": 3
+    }
+
     def __init__(self):
 
        self.config = {}
@@ -267,6 +274,7 @@ class Daemon(object):
                 wpa_file.write(expected)
 
             self.execute("wpa_cli -i wlan0 reconfigure")
+            #self.execute("sudo rfkill unblock 0")
 
     def interfaces(self):
 
@@ -414,11 +422,102 @@ class Daemon(object):
 
         if self.config["kubernetes"]["role"] == "master":
             self.execute("sudo -u pi -- kubectl apply -f /opt/klot-io/kubernetes/klot-io-app-crd.yaml")
+            self.execute("sudo -u pi -- kubectl apply -f /opt/klot-io/kubernetes/klot-io-apps.yaml")
 
-    def resources(self, obj):
+    def manifest(self, source):
 
-        if "resources" in obj:
+        if "url" in source:
+
+            url = source["url"]
+
+        elif "site" in source and source["site"] == "github.com":
+
+            if "repo" not in source:
+                raise AppException(f"missing source.repo for {source['site']}")
+
+            repo = source["repo"]
+            version = source.get("version", "master")
+
+            url = f"https://raw.githubusercontent.com/{repo}/{version}/"
+
+        else:
+
+            raise Exception(f"cannot define {source}")
+
+        if url.endswith("/"):
+
+            path = source.get("path", "klot-io-app.yaml")
+            url = f"{url}/{path}"
+
+        print(f"requesting {url}")
+
+        response = requests.get(url)
+
+        if response.status_code != 200:
+            raise Exception(f"error from source {obj['source']} url: {url} - {response.status_code}: {response.text}")
+
+        return response.text
+
+    def discover(self, name, source, action):
+
+        try:
+            pykube.KlotIOApp.objects(self.kube).get(name=name).obj
             return
+        except pykube.ObjectDoesNotExist:
+            pass
+
+        print(f"discovering {name} with {source} for {action}")
+
+        obj = {
+            "apiVersion": "klot.io/v1",
+            "kind": "KlotIOApp",
+            "metadata": {
+                "name": name,
+            },
+            "source": source,
+            "action": action,
+            "status": "Discovered"
+        }
+
+        pykube.KlotIOApp(self.kube, obj).create()
+
+    def define(self, obj):
+
+        print(f"defining {obj['metadata']['name']} from {obj['source']}")
+
+        definition = yaml.safe_load(self.manifest(obj['source']))
+
+        if not isinstance(definition, dict):
+            raise Exception(f"source {obj['source']} produced non dict {definition}")
+
+        if "spec" not in definition:
+            raise Exception(f"source {obj['source']} missing spec {definition}")
+
+        if obj['metadata']['name'] != definition.get("metadata",{}).get("name"):
+            raise Exception(f"source {obj['source']} name does not match {obj['metadata']['name']} {definition}")
+
+        obj["spec"] = definition['spec']
+        obj["status"] = "Defined"
+
+        for app in obj["spec"].get("requires", []) + obj["spec"].get("recommends", []):
+            self.discover(app['name'], app['source'], 'Define')
+
+    def act(self, name, action):
+
+        obj = pykube.KlotIOApp.objects(self.kube).get(name=name).obj
+
+        if self.ACTIONS.get(obj.get("action"), 0) >= self.ACTIONS[action]:
+            return
+
+        print(f"setting {name} for {action}")
+
+        obj["action"] = action
+
+        return pykube.KlotIOApp(self.kube, obj).replace()
+
+    def download(self, obj):
+
+        print(f"downloading {obj['metadata']['name']} from {obj['source']}")
 
         obj["resources"] = []
 
@@ -427,43 +526,13 @@ class Daemon(object):
             source = copy.deepcopy(obj["source"])
             source.update(manifest)
 
-            print(f"parsing {source}")
-
-            if "url" in source:
-
-                url = source["url"]
-
-            elif "site" in source and source["site"] == "github.com":
-
-                if "repo" not in source:
-                    raise AppException(f"missing source.repo for {source['site']}")
-
-                repo = source["repo"]
-                version = source["version"] if "version" in source else "master"
-
-                url = f"https://raw.githubusercontent.com/{repo}/{version}/"
-
-            else:
-
-                raise AppException(f"cannot parse {source}")
-
-            if url.endswith("/"):
-
-                if "path" not in source:
-                    raise AppException(f"{source} has no pathing")
-
-                url = f"{url}/{source['path']}"
-
-            print(f"fetching {url}")
-
-            response = requests.get(url)
-
-            if response.status_code != 200:
-                raise AppException(f"{response.status_code} error from {url}: {response.text}")
-
-            obj["resources"].extend(list(yaml.safe_load_all(response.text)))
+            obj["resources"].extend(list(yaml.safe_load_all(self.manifest(source))))
 
         obj["resources"].sort(key= lambda resource: RESOURCES.index(resource["kind"]) if resource["kind"] in RESOURCES else len(RESOURCES))
+        obj["status"] = "Downloaded"
+
+        for app in obj["spec"].get("requires", []):
+            self.act(app['name'], 'Download')
 
     def display(self, obj):
 
@@ -476,122 +545,7 @@ class Daemon(object):
 
         return "/".join(display)
 
-    def app(self, requirement, action):
-
-        name = requirement["name"]
-
-        print(f"searching for {requirement['name']}")
-
-        try:
-            app = pykube.App.objects(self.kube).filter().get(name=requirement["name"]).obj
-            print(f"found {app['metadata']['name']} {app['source']}")
-            return app
-        except pykube.ObjectDoesNotExist:
-            pass
-
-        source = requirement["source"]
-
-        print(f"creating {source}")
-
-        if "url" in source:
-
-            url = source["url"]
-
-        elif "site" in source and source["site"] == "github.com":
-
-            if "repo" not in source:
-                raise AppException(f"missing source.repo for {source['site']}")
-
-            repo = source["repo"]
-            version = source["version"] if "version" in source else "master"
-
-            url = f"https://raw.githubusercontent.com/{repo}/{version}/"
-
-        else:
-
-            raise Exception(f"cannot preview {source}")
-
-        if url.endswith("/"):
-
-            path = source["path"] if "path" in source else "klot-io-app.yaml"
-            url = f"{url}/{path}"
-
-        print(f"requesting {url}")
-
-        response = requests.get(url)
-
-        if response.status_code != 200:
-            raise Exception(f"error from source {source} url: {url} - {response.status_code}: {response.text}")
-
-        obj = yaml.safe_load(response.text)
-
-        if not isinstance(obj, dict):
-            raise Exception(f"source {source} produced non dict {obj}")
-
-        if obj["apiVersion"] != "klot.io/v1":
-            raise Exception(f"source {source} apiVersion not klot.io/v1 {obj}")
-
-        if obj["kind"] != "App":
-            raise Exception(f"source {source} kind not App {obj}")
-
-        if "spec" not in obj:
-            raise Exception(f"source {source} missing spec {obj}")
-
-        if "metadata" not in obj:
-            raise Exception(f"source {source} missing metadata {obj}")
-
-        if "version" not in obj["metadata"]:
-            raise Exception(f"source {source} missing metadata.version {obj}")
-
-        if name != obj["metadata"].get("name"):
-            raise Exception(f"source {source} name does not match {name} {obj}")
-
-        obj["source"] = source
-        obj["action"] = action
-        obj["status"] = "Discovered"
-
-        pykube.App(self.kube, obj).create()
-
-        return obj
-
-    def source(self, obj):
-
-        if "requires" in obj["spec"]:
-
-            for requirement in obj["spec"]["requires"]:
-
-                print(f"sourcing {requirement}")
-
-                app = self.app(requirement, obj["action"])
-
-                print(f"sourced {app['metadata']['name']} {app['source']}")
-
-    def satisfy(self, obj):
-
-        satisfied = True
-
-        if "requires" in obj["spec"]:
-
-            for requirement in obj["spec"]["requires"]:
-
-                print(f"satisfying {requirement}")
-
-                app = self.app(requirement, obj["action"])
-
-                if app["status"] != "Installed":
-
-                    satisfied = False
-
-                    if obj["action"] == "Install" and app["status"] != "Error":
-                        app["action"] = "Install"
-                        pykube.App(self.kube, app).replace()
-
-        return satisfied
-
     def url(self, obj):
-
-        if "url" not in obj["spec"]:
-            return
 
         url = obj['spec']['url']
 
@@ -607,52 +561,66 @@ class Daemon(object):
 
         print(f"created url {obj['url']}")
 
+    def install(self, obj):
+
+        for app in obj["spec"].get("requires", []):
+            self.act(app['name'], 'Install')
+
+        print(f"checking requirements for {obj['metadata']['name']}")
+
+        for app in obj["spec"].get("requires", []):
+            if pykube.KlotIOApp.objects(self.kube).get(name=app['name']).obj.get("status") != "Installed":
+                return
+
+        print(f"installing {obj['metadata']['name']}")
+
+        for resource in obj["resources"]:
+            print(f"applying {self.display(resource)}")
+            Resource = getattr(pykube, resource["kind"])
+            try:
+                Resource(self.kube, resource).replace()
+            except pykube.PyKubeError:
+                Resource(self.kube, resource).delete()
+                Resource(self.kube, resource).create()
+
+        if "url" in obj["spec"]:
+            self.url(obj)
+
+        obj["status"] = "Installed"
+
+    def uninstall(self, obj):
+
+        print(f"uninstalling {self.display(obj)}")
+
+        for resource in reversed(obj["resources"]):
+            print(f"deleting {self.display(resource)}")
+            getattr(pykube, resource["kind"])(self.kube, resource).delete()
+
+        if "url" in obj:
+            del obj["url"]
+
+        obj["action"] = "Download"
+        obj["status"] = "Downloaded"
+
     def apps(self):
 
-        for obj in [app.obj for app in pykube.App.objects(self.kube).filter()]:
+        for obj in [app.obj for app in pykube.KlotIOApp.objects(self.kube).filter()]:
+
+            obj.setdefault("status", "Discovered")
+            obj.setdefault("action", "Define")
 
             try:
 
-                if "status" not in obj:
-                    obj["status"] = "Discovered"
-
-                if "action" not in obj:
-                    obj["action"] = "Download"
-
-                if obj["status"] == "Discovered" and "resources" not in obj:
-                    self.resources(obj)
-                    self.source(obj)
-                    obj["status"] = "Downloaded"
-
-                if obj["action"] == "Install" and obj["status"] not in ["Installed", "Error"] and self.satisfy(obj):
-
-                    print(f"installing {self.display(obj)}")
-                    for resource in obj["resources"]:
-                        print(f"applying {self.display(resource)}")
-                        Resource = getattr(pykube, resource["kind"])
-                        try:
-                            Resource(self.kube, resource).replace()
-                        except pykube.PyKubeError:
-                            Resource(self.kube, resource).delete()
-                            Resource(self.kube, resource).create()
-
-                    self.url(obj)
-
-                    obj["status"] = "Installed"
-
-                elif obj["status"] == "Installed" and obj["action"] == "Uninstall":
-
-                    print(f"uninstalling {self.display(obj)}")
-
-                    for resource in reversed(obj["resources"]):
-                        print(f"deleting {self.display(resource)}")
-                        getattr(pykube, resource["kind"])(self.kube, resource).delete()
-
-                    if "url" in obj:
-                        del obj["url"]
-
-                    obj["action"] = "Download"
-                    obj["status"] = "Downloaded"
+                if "spec" not in obj and obj['action'] in ["Define", "Download", "Install"]:
+                    self.define(obj)
+                elif "resources" not in obj and obj['action'] in ["Download", "Install"]:
+                    self.download(obj)
+                elif obj['action'] == "Install" and obj.get("status") not in ["Installed", "Error"]:
+                    self.install(obj)
+                elif obj['action'] == "Uninstall" and obj.get("status") == "Installed":
+                    self.uninstall(obj)
+                else:
+                    continue
 
             except Exception as exception:
 
@@ -660,7 +628,7 @@ class Daemon(object):
                 obj["error"] = traceback.format_exc().splitlines()
                 traceback.print_exc()
 
-            pykube.App(self.kube, obj).replace()
+            pykube.KlotIOApp(self.kube, obj).replace()
 
     def nginx(self, expected):
 

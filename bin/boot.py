@@ -17,6 +17,7 @@ local.copy("config/network.yaml")
 
 local.directory("kubernetes")
 local.copy("kubernetes/klot-io-app-crd.yaml")
+local.copy("kubernetes/klot-io-apps.yaml")
 
 local.copy("requirements.txt", "requirements.txt")
 

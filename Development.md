@@ -325,7 +325,7 @@ Eject the card, place into the Mac.
 make export
 ```
 
-This will copy the SD image to the images/ directory asmake zip pi-(version>).img with (verison) from the Makefile. Fair warning, this takes forever.
+This will copy the SD image to the images/ directory as pi-(version>).img with (verison) from the Makefile. Fair warning, this takes forever.
 
 ## shrink image to more manageable size
 
