@@ -339,7 +339,7 @@ class Status(flask_restful.Resource):
                             status = "Master"
 
             if status == "Workers":
-                for obj in [app.obj for app in pykube.App.objects(kube()).filter()]:
+                for obj in [app.obj for app in pykube.KlotIOApp.objects(kube()).filter()]:
                     if obj.get("status") == "Installed" and "url" in obj:
                         status = "Apps"
                         break
@@ -630,20 +630,27 @@ class App(flask_restful.Resource):
 
         app = {
             "name": obj["metadata"]["name"],
-            "version": obj["spec"].get("version", ''),
-            "namespace": obj["spec"]["namespace"],
-            "description": obj["spec"].get("description", ''),
-            "action": "Download",
-            "status": "Discovered"
+            "version": obj["source"].get("version", ''),
+            "namespace": obj.get("spec", {}).get("namespace", ""),
+            "description": obj.get("spec", {}).get("description", ''),
+            "action": obj.get("action","Define"),
+            "status": obj.get("status","Discovered"),
+            "actions": []
         }
 
-        if "status" in obj:
-            app["status"] = obj["status"]
+        if app["status"] in ["Defined"] and app["action"] not in ["Download", "Install"]:
+            app["actions"].append("Download")
 
-        if "action" in obj:
-            app["action"] = obj["action"]
+        if app["status"] in ["Defined", "Downloaded"] and app["action"] not in ["Install"]:
+            app["actions"].append("Install")
 
-        if "labels" in obj["spec"]:
+        if app["status"] in ["Error"] or (app["status"] in ["Defined", "Downloaded"] and app["action"] not in ["Install"]):
+            app["actions"].append("Delete")
+
+        if app["status"] in ["Installed"] and app["action"] not in ["Uninstall"]:
+            app["actions"].append("Uninstall")
+
+        if "labels" in obj.get("spec", {}):
             app["labels"] = obj["spec"]["labels"]
 
         if "url" in obj:
@@ -670,7 +677,7 @@ class AppLP(App):
 
         apps = []
 
-        for obj in [app.obj for app in pykube.App.objects(kube()).filter()]:
+        for obj in [app.obj for app in pykube.KlotIOApp.objects(kube()).filter()]:
 
             apps.append(self.to_dict(obj, short=True))
 
@@ -686,68 +693,21 @@ class AppLP(App):
         if "source" not in flask.request.json:
             return {"error": "missing source"}, 400
 
-        name = flask.request.json["name"]
-        source = flask.request.json["source"]
-
-        if "url" in source:
-
-            url = source["url"]
-
-        elif "site" in source and source["site"] == "github.com":
-
-            if "repo" not in source:
-                return {"error": f"missing source.repo for {source['site']}"}, 400
-
-            repo = source["repo"]
-            version = source["version"] if "version" in source else "master"
-
-            url = f"https://raw.githubusercontent.com/{repo}/{version}/"
-
-        else:
-
-            return {"error": f"need url or github {source}"}, 400
-
-        if url.endswith("/"):
-
-            path = source["path"] if "path" in source else "klot-io-app.yaml"
-            url = f"{url}/{path}"
-
-        response = requests.get(url)
-
-        if response.status_code != 200:
-            return {f"error from {url}": response.text}, response.status_code
-
-        obj = yaml.safe_load(response.text)
-
-        if not isinstance(obj, dict):
-            return {"error": f"{source} produced non dict {obj}"}, 400
-
-        if obj["apiVersion"] != "klot.io/v1":
-            return {"error": f"{source} apiVersion not klot.io/v1 {obj}"}, 400
-
-        if obj["kind"] != "App":
-            return {"error": f"{source} kind not App {obj}"}, 400
-
-        if "spec" not in obj:
-            return {"error": f"{source} missing spec {obj}"}, 400
-
-        if "metadata" not in obj:
-            return {"error": f"{source} missing metadata {obj}"}, 400
-
-        if "version" not in obj["metadata"]:
-            return {"error": f"{source} missing metadata.version {obj}"}, 400
-
-        if name != obj["metadata"].get("name"):
-            return {"error": f"{source} name does not match {name} {obj}"}, 400
-
-        obj["source"] = source
+        obj = {
+            "apiVersion": "klot.io/v1",
+            "kind": "KlotIOApp",
+            "metadata": {
+                "name": flask.request.json["name"],
+            },
+            "source": flask.request.json["source"]
+        }
 
         if "action" in flask.request.json:
             obj["action"] = flask.request.json["action"]
 
-        pykube.App(kube(), obj).create()
+        pykube.KlotIOApp(kube(), obj).create()
 
-        return {"message": f"{obj['metadata']['name']} queued for preview"}, 202
+        return {"message": f"{obj['metadata']['name']} queued"}, 202
 
 class AppRIU(App):
 
@@ -755,7 +715,7 @@ class AppRIU(App):
     @require_kube
     def get(self, name):
 
-        obj = pykube.App.objects(kube()).filter().get(name=name).obj
+        obj = pykube.KlotIOApp.objects(kube()).filter().get(name=name).obj
 
         return {self.singular: self.to_dict(obj)}
 
@@ -766,11 +726,11 @@ class AppRIU(App):
         if "action" not in flask.request.json:
             return {"error": "missing action"}, 400
 
-        obj = pykube.App.objects(kube()).filter().get(name=name).obj
+        obj = pykube.KlotIOApp.objects(kube()).filter().get(name=name).obj
 
         obj["action"] = flask.request.json["action"]
 
-        pykube.App(kube(), obj).replace()
+        pykube.KlotIOApp(kube(), obj).replace()
 
         return {self.singular: self.to_dict(obj)}
 
@@ -779,12 +739,12 @@ class AppRIU(App):
     @require_kube
     def delete(self, name):
 
-        obj = pykube.App.objects(kube()).filter().get(name=name).obj
+        obj = pykube.KlotIOApp.objects(kube()).filter().get(name=name).obj
 
         if "status" in obj and obj["status"] == "Installed":
             return {"error": f"Can't delete Installed {name}. Uninstall first."}
 
-        pykube.App(kube(), obj).delete()
+        pykube.KlotIOApp(kube(), obj).delete()
 
         return {"message": f"{name} deleted"}, 201
 
@@ -810,7 +770,7 @@ class Label(flask_restful.Resource):
         if "node" in flask.request.args:
             node_filter["field_selector"] = {"metadata.name": flask.request.args["node"]}
 
-        for obj in [app.obj for app in pykube.App.objects(kube()).filter(**app_filter)]:
+        for obj in [app.obj for app in pykube.KlotIOApp.objects(kube()).filter(**app_filter)]:
             if "labels" in obj["spec"]:
                 for label in obj["spec"]["labels"]:
                     labels.append({
@@ -854,7 +814,7 @@ class Label(flask_restful.Resource):
 
         app_labels = {}
 
-        for obj in [app.obj for app in pykube.App.objects(kube()).filter()]:
+        for obj in [app.obj for app in pykube.KlotIOApp.objects(kube()).filter()]:
             if "labels" in obj["spec"]:
                 for app_label in obj["spec"]["labels"]:
                     app_labels[f"{obj['metadata']['name']}/{app_label['name']}={app_label['value']}"] = app_label
@@ -898,7 +858,7 @@ class Label(flask_restful.Resource):
 
         app_labels = []
 
-        for obj in [app.obj for app in pykube.App.objects(kube()).filter()]:
+        for obj in [app.obj for app in pykube.KlotIOApp.objects(kube()).filter()]:
             if "labels" in obj["spec"]:
                 for app_label in obj["spec"]["labels"]:
                     app_labels.append(f"{obj['metadata']['name']}/{app_label['name']}")

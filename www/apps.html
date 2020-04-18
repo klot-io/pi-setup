@@ -55,20 +55,11 @@
                 <td OnClick="DRApp.go('app','{{!app.name}}')" class="clickable">{{=app.action}}</td>
                 <td OnClick="DRApp.go('app','{{!app.name}}')" class="clickable">{{=app.status}}</td>
                 <td>
-                    {{?app.status == "Downloaded" && app.action != "Install"}}
-                        <button type="button" onClick="DRApp.current.controller.app_action('{{!app.name}}', 'Install');" class="uk-button uk-button-primary">
-                            Install
+                    {{~app.actions :action}}
+                        <button type="button" onClick="DRApp.current.controller.app_action('{{!app.name}}', '{{!action}}');" class="uk-button uk-button-primary">
+                            {{=action}}
                         </button>
-                    {{?}}
-                    {{?app.status == "Error" || (app.status == "Downloaded" && app.action != "Install")}}
-                        <button type="button" onClick="DRApp.current.controller.app_delete('{{!app.name}}');" class="uk-button uk-button-primary">
-                            Delete
-                        </button>
-                    {{??app.action != "Uninstall" && app.status == "Installed"}}
-                        <button type="button" onClick="DRApp.current.controller.app_action('{{!app.name}}', 'Uninstall');" class="uk-button uk-button-primary">
-                            Uninstall
-                        </button>
-                    {{?}}
+                    {{~}}
                 </td>
             </tr>
             {{~}}
