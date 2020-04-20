@@ -745,7 +745,7 @@ class AppRIU(App):
                     label = f"{obj['metadata']['name']}/{field.name}"
 
                     if node["labels"].get(label) == field.content["node"]:
-                        if field.mulit:
+                        if field.multi:
                             field.original.append(node["name"])
                         else:
                             field.original = node["name"]
