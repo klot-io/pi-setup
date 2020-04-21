@@ -1,0 +1,60 @@
+{{#def.Header}}
+<div class="uk-overflow-container">
+    <h2>App - {{= it.app.name}} - Settings</h2>
+    {{?it.errors}}
+    <div class="uk-alert uk-alert-danger">
+        {{~it.errors :error}}
+            {{=error}}<br/>
+        {{~}}
+    </div>
+    {{?}}
+    <form class="uk-form uk-form-horizontal">
+        {{~it.fields :field}}
+        <div class="uk-form-row">
+            <label class="uk-form-label" for="{{=field.name}}">{{=field.name}}:</label>
+            {{?field.errors}}
+                <div class="uk-alert uk-alert-danger">
+                    {{~field.errors :error}}
+                        {{=error}}<br/>
+                    {{~}}
+                </div>
+            {{?}}
+            {{?field.options}}
+                {{~field.options :option}}
+                    <input
+                        value="{{!option}}"
+                        {{?field.multi}}
+                            type="checkbox" name="{{!field.name}}"
+                            {{?(field.value || field.default || []).indexOf(option) > -1}}checked{{?}}
+                        {{??}}
+                            type="radio" name="{{!field.name}}"
+                            {{?(field.value || field.default) == option}}checked{{?}}
+                        {{?}}
+                    />
+                    {{= field.labels ? field.labels[option] : option}}
+                {{~}}
+            {{??}}
+                <input
+                    id="{{!field.name}}"
+                    placeholder="{{!field.label || field.name}}"
+                    value="{{!field.value || field.default || ''}}"
+                    type="text"
+                />
+            {{?}}
+            {{?field.description}}
+                <br/>{{=field.description}}
+            {{?}}
+        </div>
+        {{~}}
+        <div class="uk-form-row">
+            <hr/>
+            <button type="button" onClick="DRApp.current.controller.settings_save();" class="uk-button uk-button-primary">
+                Save
+            </button>
+            <button type="button" onClick="DRApp.current.controller.settings_cancel();" class="uk-button uk-button-primary">
+                Cancel
+            </button>
+        </div>
+    </form>
+</div>
+{{#def.Footer}}

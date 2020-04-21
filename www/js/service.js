@@ -1,17 +1,5 @@
 window.DRApp = new DoTRoute.Application();
 
-DRApp.YAML = function (value) {
-    if (typeof value === 'object' && value.constructor === Array) {
-        var sections = [];
-        for (var index = 0; index < value.length; index++) {
-            sections.push(jsyaml.dump(value[index]));
-        }
-        return sections.join("---\n");
-    } else {
-        return jsyaml.dump(value);
-    }
-}
-
 DRApp.load = function (name) {
     return $.ajax({url: name + ".html", async: false}).responseText;
 }
@@ -274,8 +262,7 @@ DRApp.controller("Base",null,{
         this.loading();
         this.update_status();
         this.it = {
-            apps: this.rest("GET","/api/app").apps,
-            nodes: this.rest("GET","/api/node").nodes
+            apps: this.rest("GET","/api/app").apps
         }
         this.application.render(this.it);
         this.start();
@@ -314,44 +301,64 @@ DRApp.controller("Base",null,{
         this.it.message = this.rest("POST","/api/app", {name: name, source: this.apps_source(), action: action}).message;
         this.application.refresh();
     },
-    app: function() {
-        this.loading();
-        this.update_status();
-        this.it = {
-            app: this.rest("GET","/api/app/"+ DRApp.current.path.app_name).app,
-            nodes: this.rest("GET","/api/node").nodes,
-            labels: this.rest("GET","/api/label?app=" + DRApp.current.path.app_name).labels
-        }
-        this.application.render(this.it);
-        this.start();
-    },
-    app_label: function(label_name, node_name) {
-            var label = {
-                app: this.it.app.name,
-                name: label_name,
-                node: node_name
-            }
-        if ($('#' + label_name + '-' + node_name).is(':checked')) {
-            label.value = $('#' + label_name +  '-' + node_name).val();
-            this.rest("POST","/api/label", {label: label});
-        } else {
-            this.rest("DELETE","/api/label", {label: label});
-        }
-        this.application.refresh();
-    },
     app_action: function(name, action) {
-        if (action != "Uninstall" || confirm("Are you sure you want to uninstall " + name + "?")) {
+        if (action == "Settings") {
+            this.application.go("settings", name);
+        } else if (action == "Delete") {
+            this.rest("DELETE","/api/app/" + name);
+            if (this.application.current.path.app_name) {
+                this.application.go('apps');
+            } else {
+                this.application.refresh();
+            }
+        } else if (action != "Uninstall" || confirm("Are you sure you want to uninstall " + name + "?")) {
             this.rest("PATCH","/api/app/" + name, {action: action});
             this.application.refresh();
         }
     },
-    app_delete: function(name) {
-        this.rest("DELETE","/api/app/" + name);
-        if (this.application.current.path.app_name) {
-            this.application.go('apps');
-        } else {
-            this.application.refresh();
+    info: function() {
+        this.loading();
+        this.update_status();
+        this.it = {
+            app: this.rest("GET","/api/app/"+ DRApp.current.path.app_name).app
         }
+        this.application.render(this.it);
+        this.start();
+    },
+    settings: function() {
+        this.it = {
+            app: this.rest("GET","/api/app/"+ DRApp.current.path.app_name).app,
+            fields: this.rest("OPTIONS","/api/app/"+ DRApp.current.path.app_name, {}).fields
+        }
+        this.application.render(this.it);
+    },
+    settings_save: function() {
+        var values = {};
+        for (var field_index = 0; field_index < this.it.fields.length; field_index++) {
+            var field = this.it.fields[field_index];
+            if (field.options) {
+                if (field.multi) {
+                    values[field.name] = [];
+                    $("input[name='" + field.name + "']:checked").each(function () {
+                        values[field.name].push($(this).val());
+                    });
+                } else {
+                    values[field.name] = $("input[name='" + field.name + "']:checked").val()
+                }
+            } else {
+                values[field.name] = $("#" + field.name).val()
+            }
+        }
+        this.it.fields = this.rest("OPTIONS","/api/app/"+ DRApp.current.path.app_name, {values: values}).fields;
+        if (!this.it.fields.errors) {
+            this.rest("PUT","/api/app/"+ DRApp.current.path.app_name, {values: values});
+            this.application.go("apps");
+        } else {
+            this.application.render(this.it);
+        }
+    },
+    settings_cancel: function() {
+        this.application.go("apps");
     }
 });
 
@@ -368,8 +375,8 @@ DRApp.template("Pods",DRApp.load("pods"),null,DRApp.partials);
 DRApp.template("Pod",DRApp.load("pod"),null,DRApp.partials);
 DRApp.template("Nodes",DRApp.load("nodes"),null,DRApp.partials);
 DRApp.template("Apps",DRApp.load("apps"),null,DRApp.partials);
-DRApp.template("Manage",DRApp.load("manage"),null,DRApp.partials);
-DRApp.template("App",DRApp.load("app"),null,DRApp.partials);
+DRApp.template("Info",DRApp.load("info"),null,DRApp.partials);
+DRApp.template("Settings",DRApp.load("settings"),null,DRApp.partials);
 
 DRApp.route("home","/","Home","Base", "home")
 DRApp.route("login","/login","Login","Base", "login")
@@ -382,5 +389,5 @@ DRApp.route("pods","/pod","Pods","Base","pods", "stop");
 DRApp.route("pod","/pod/{pod}","Pod","Base","pod", "stop");
 DRApp.route("nodes","/node","Nodes","Base","nodes", "stop");
 DRApp.route("apps","/app","Apps","Base","apps", "stop");
-DRApp.route("manage","/manage","Manage","Base","manage", "stop");
-DRApp.route("app","/app/{app_name}","App","Base","app", "stop");
+DRApp.route("info","/app/{app_name}/info","Info","Base","info", "stop");
+DRApp.route("settings","/app/{app_name}/settings","Settings","Base","settings");

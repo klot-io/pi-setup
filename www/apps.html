@@ -49,17 +49,23 @@
         <tbody>
             {{~it.apps :app}}
             <tr>
-                <td OnClick="DRApp.go('app','{{!app.name}}')" class="clickable">{{=app.name}}</td>
-                <td OnClick="DRApp.go('app','{{!app.name}}')" class="clickable">{{=app.name}}</td>
-                <td OnClick="DRApp.go('app','{{!app.name}}')" class="clickable">{{=app.description}}</td>
-                <td OnClick="DRApp.go('app','{{!app.name}}')" class="clickable">{{=app.action}}</td>
-                <td OnClick="DRApp.go('app','{{!app.name}}')" class="clickable">{{=app.status}}</td>
+                <td>{{=app.name}}</td>
+                <td>{{=app.version}}</td>
+                <td>{{=app.description}}</td>
+                <td>{{=app.action}}</td>
+                <td>{{=app.status}}</td>
                 <td>
+                    {{?app.url}}
+                        <a class="uk-button uk-button-primary" href="{{!app.url}}" target="{{!app.name}}">Open</a>
+                    {{?}}
                     {{~app.actions :action}}
                         <button type="button" onClick="DRApp.current.controller.app_action('{{!app.name}}', '{{!action}}');" class="uk-button uk-button-primary">
                             {{=action}}
                         </button>
                     {{~}}
+                    <button type="button" onClick="DRApp.go('info','{{!app.name}}');" class="uk-button uk-button-primary">
+                        Info
+                    </button>
                 </td>
             </tr>
             {{~}}

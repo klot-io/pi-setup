@@ -447,14 +447,14 @@ class Daemon(object):
         if url.endswith("/"):
 
             path = source.get("path", "klot-io-app.yaml")
-            url = f"{url}/{path}"
+            url = f"{url}{path}"
 
         print(f"requesting {url}")
 
         response = requests.get(url)
 
         if response.status_code != 200:
-            raise Exception(f"error from source {obj['source']} url: {url} - {response.status_code}: {response.text}")
+            raise Exception(f"error from source {source} url: {url} - {response.status_code}: {response.text}")
 
         return response.text
 
@@ -545,6 +545,22 @@ class Daemon(object):
 
         return "/".join(display)
 
+    def settings(self, obj):
+
+        print(f"creating settings for {obj['metadata']['name']}")
+
+        obj = {
+            "apiVersion": "v1",
+            "kind": "ConfigMap",
+            "metadata": {
+                "namespace": obj["spec"]["namespace"],
+                "name": "config",
+            },
+            "data": {"settings.yaml": yaml.safe_dump(obj["settings"])}
+        }
+
+        pykube.ConfigMap(self.kube, obj).create()
+
     def url(self, obj):
 
         url = obj['spec']['url']
@@ -568,8 +584,14 @@ class Daemon(object):
 
         print(f"checking requirements for {obj['metadata']['name']}")
 
+        if "settings" in obj["spec"] and "settings" not in obj:
+            print(f"need settings for {obj['metadata']['name']}")
+            obj['status'] = "NeedSettings"
+            return
+
         for app in obj["spec"].get("requires", []):
             if pykube.KlotIOApp.objects(self.kube).get(name=app['name']).obj.get("status") != "Installed":
+                print(f"need {app['name']} for {obj['metadata']['name']}")
                 return
 
         print(f"installing {obj['metadata']['name']}")
@@ -583,10 +605,13 @@ class Daemon(object):
                 Resource(self.kube, resource).delete()
                 Resource(self.kube, resource).create()
 
-        if "url" in obj["spec"]:
-            self.url(obj)
+        if "settings" in obj:
+            self.settings(obj)
 
         obj["status"] = "Installed"
+
+        if "url" in obj["spec"]:
+            self.url(obj)
 
     def uninstall(self, obj):
 
