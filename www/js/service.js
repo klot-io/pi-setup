@@ -326,17 +326,36 @@ DRApp.controller("Base",null,{
         this.start();
     },
     settings: function() {
+        var settings = this.rest("OPTIONS","/api/app/"+ DRApp.current.path.app_name, {});
         this.it = {
             app: this.rest("GET","/api/app/"+ DRApp.current.path.app_name).app,
-            fields: this.rest("OPTIONS","/api/app/"+ DRApp.current.path.app_name, {}).fields
+            fields: settings.fields,
+            ready: settings.ready
         }
         this.application.render(this.it);
     },
-    settings_save: function() {
+    settings_input: function() {
         var values = {};
         for (var field_index = 0; field_index < this.it.fields.length; field_index++) {
             var field = this.it.fields[field_index];
-            if (field.options) {
+            if (field.fields) {
+                values[field.name] = {}
+                for (var subfield_index = 0; subfield_index < field.fields.length; subfield_index++) {
+                    var subfield = field.fields[subfield_index];
+                    if (subfield.options) {
+                        if (field.multi) {
+                            values[field.name][subfield.name] = [];
+                            $("input[name='" + field.name + '-' + subfield.name + "']:checked").each(function () {
+                                values[field.name][subfield.name].push($(this).val());
+                            });
+                        } else {
+                            values[field.name][subfield.name] = $("input[name='" + field.name + '-' + subfield.name + "']:checked").val()
+                        }
+                    } else {
+                        values[field.name][subfield.name] = $("#" + field.name + '-' + subfield.name).val()
+                    }
+                }
+            } else if (field.options) {
                 if (field.multi) {
                     values[field.name] = [];
                     $("input[name='" + field.name + "']:checked").each(function () {
@@ -349,8 +368,22 @@ DRApp.controller("Base",null,{
                 values[field.name] = $("#" + field.name).val()
             }
         }
-        this.it.fields = this.rest("OPTIONS","/api/app/"+ DRApp.current.path.app_name, {values: values}).fields;
-        if (!this.it.fields.errors) {
+        return values;
+    },
+    settings_next: function() {
+        var values = this.settings_input();
+        var settings = this.rest("OPTIONS","/api/app/"+ DRApp.current.path.app_name, {values: values});
+        this.it.fields = settings.fields;
+        this.it.ready = settings.ready;
+        this.application.render(this.it);
+    },
+    settings_save: function() {
+        var values = this.settings_input();
+        var settings = this.rest("OPTIONS","/api/app/"+ DRApp.current.path.app_name, {values: values, validate: true});
+        this.it.fields = settings.fields;
+        this.it.ready = settings.ready;
+        this.it.errors = settings.errors;
+        if (!this.it.errors) {
             this.rest("PUT","/api/app/"+ DRApp.current.path.app_name, {values: values});
             this.application.go("apps");
         } else {
