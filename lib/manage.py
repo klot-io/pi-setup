@@ -1,4 +1,5 @@
 import os
+import json
 import yaml
 import requests
 import platform
@@ -11,6 +12,9 @@ import flask
 import flask_restful
 import opengui
 import pykube
+import google_auth_oauthlib.flow
+import google.oauth2.credentials
+import googleapiclient.discovery
 
 def app():
 
@@ -653,7 +657,7 @@ class App(flask_restful.Resource):
         if app["status"] in ["Defined", "Downloaded"] and app["action"] not in ["Install"]:
             app["actions"].append("Install")
 
-        if app["status"] in ["Error"] or (app["status"] in ["Defined", "Downloaded"] and app["action"] not in ["Install"]):
+        if app["status"] in ["NeedSettings", "Error"] or (app["status"] in ["Defined", "Downloaded"] and app["action"] not in ["Install"]):
             app["actions"].append("Delete")
 
         if app["status"] in ["Installed"] and app["action"] not in ["Uninstall"]:
@@ -711,44 +715,162 @@ class AppLP(App):
 class AppRIU(App):
 
     @staticmethod
-    def fields(obj, values):
+    def nodes(nodes):
 
-        fields = opengui.Fields(values, obj.get("settings", {}), obj["spec"].get("settings", []))
+        for node in [node.obj for node in pykube.Node.objects(kube()).filter()]:
+            nodes.append({
+                "name": node["metadata"]["name"],
+                "role": "Master" if node["metadata"]["name"] == platform.node() else "Worker",
+                "labels": node["metadata"]["labels"]
+            })
+
+        nodes.sort(key=operator.itemgetter('role', 'name'))
+
+    @classmethod
+    def node(cls, app, field, nodes):
+
+        if not nodes:
+            cls.nodes(nodes)
+
+        field.options = []
+
+        if field.multi:
+            field.original = []
+
+        for node in nodes:
+
+            field.options.append(node["name"])
+
+            if node["labels"].get(f"{app}/{field.name}") == field.content["node"]:
+                if field.multi:
+                    field.original.append(node["name"])
+                else:
+                    field.original = node["name"]
+
+    @staticmethod
+    def calendar(field):
+
+        # https://www.googleapis.com/auth/calendar.readonly
+
+        # Successfully installed cachetools-4.1.0 google-auth-1.14.0 google-auth-httplib2-0.0.3 google-auth-oauthlib-0.4.1 httplib2-0.17.2 oauthlib-3.1.0 pyasn1-modules-0.2.8 requests-oauthlib-1.3.0 rsa-4.0
+
+        # 4/ywEX3hVZgLcTCxzQf9qAMRS_GJTLEhMtDfhTpeNCACYZWAVl31ecVho
+
+        ready = False
+
+        subfields = [
+            {
+                "name": "credentials",
+                "description": "\n".join([
+                    "Go to the Link below.",
+                    "Create a new project.",
+                    "Enable Calendar API.",
+                    "Create credentials (OAuth, Other).",
+                    "Download the JSON and paste it above."
+                ]),
+                "link": {
+                    "name": "Google API's",
+                    "url": "https://console.developers.google.com/apis/"
+                }
+            }
+        ]
+
+        credentials = json.loads(field.value['credentials']) if field.value and field.value.get("credentials") else {}
+
+        if credentials and "token" not in credentials:
+
+            if not field.value.get("code"):
+
+                flow = google_auth_oauthlib.flow.Flow.from_client_config(
+                    credentials,
+                    scopes=['https://www.googleapis.com/auth/calendar.readonly'],
+                    redirect_uri='urn:ietf:wg:oauth:2.0:oob'
+                )
+
+                url, state = flow.authorization_url(prompt='consent',access_type='offline',include_granted_scopes='true')
+
+                credentials["state"] = state
+
+                subfields.append({
+                    "name": "code",
+                    "description": "\n".join([
+                        "Go to the Link below.",
+                        "Click Advanced.",
+                        "Authorise access to your Calendars.",
+                        "Copy the Code and paste it above."
+                    ]),
+                    "link": {
+                        "name": "Authorize Calendar Access",
+                        "url": url
+                    }
+                })
+
+            else:
+
+                flow = google_auth_oauthlib.flow.Flow.from_client_config(
+                    credentials,
+                    scopes=['https://www.googleapis.com/auth/calendar.readonly'],
+                    redirect_uri='urn:ietf:wg:oauth:2.0:oob',
+                    state=credentials['state']
+                )
+
+                flow.fetch_token(code=field.value["code"])
+
+                credentials = json.loads(flow.credentials.to_json())
+
+        if credentials and "token" in credentials:
+
+            service = googleapiclient.discovery.build(
+                'calendar', 'v3', credentials=google.oauth2.credentials.Credentials(**credentials)
+            )
+
+            options = []
+            labels = {}
+            page_token = None
+
+            while True:
+
+                calendar_list = service.calendarList().list(pageToken=page_token).execute()
+
+                for calendar in calendar_list['items']:
+                    options.append(calendar['id'])
+                    labels[calendar['id']] = calendar["summary"]
+
+                page_token = calendar_list.get('nextPageToken')
+
+                if not page_token:
+                    break
+
+            subfields.append({
+                "name": "watch",
+                "description": "The Calendar you'd like to watch.",
+                "options": options,
+                "labels": labels
+            })
+
+            ready = True
+
+        field.fields = opengui.Fields(field.value, field.original, subfields)
+
+        if credentials:
+            field.fields["credentials"].value = json.dumps(credentials)
+
+        return ready
+
+    @classmethod
+    def fields(cls, obj, values):
+
+        fields = opengui.Fields(values, obj.get("settings", {}), obj["spec"].get("settings", []), ready=True)
 
         nodes = []
 
-        if [True for field in fields if field.content.get("node")]:
+        for field in fields:
 
-            for node in [node.obj for node in pykube.Node.objects(kube()).filter()]:
-                nodes.append({
-                    "name": node["metadata"]["name"],
-                    "role": "Master" if node["metadata"]["name"] == platform.node() else "Worker",
-                    "labels": node["metadata"]["labels"]
-                })
+            if field.content.get("node"):
+                cls.node(obj["metadata"]["name"], field, nodes)
 
-            nodes.sort(key=operator.itemgetter('role', 'name'))
-
-            for field in fields:
-
-                if not field.content.get("node"):
-                    continue
-
-                field.options = []
-
-                if field.multi:
-                    field.original = []
-
-                for node in nodes:
-
-                    field.options.append(node["name"])
-
-                    label = f"{obj['metadata']['name']}/{field.name}"
-
-                    if node["labels"].get(label) == field.content["node"]:
-                        if field.multi:
-                            field.original.append(node["name"])
-                        else:
-                            field.original = node["name"]
+            if field.content.get("google") == "calendar":
+                fields.ready = fields.ready and cls.calendar(field)
 
         return fields
 
@@ -785,10 +907,10 @@ class AppRIU(App):
 
         fields = self.fields(obj, values)
 
-        if values and not fields.validate():
-            return {"fields": fields.to_list(), "errors": fields.errors}
+        if values and flask.request.json.get("validate") and not fields.validate():
+            return {"fields": fields.to_list(), "ready": fields.ready, "errors": fields.errors}
         else:
-            return {"fields": fields.to_list()}
+            return {"fields": fields.to_list(), "ready": fields.ready}
 
     @require_auth
     @require_kube
