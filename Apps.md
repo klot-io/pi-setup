@@ -31,7 +31,7 @@ Some Apps require that you label nodes. In some cases, it's so the App knows whi
 
 - Go back to Apps.
 - Click the Nandy App.
-- Click a checkbox under labels to tell it which Nodes have speakers attached 
+- Click a checkbox under labels to tell it which Nodes have speakers attached
   - You can connect headphones to the node you selected for now
 
 ![speech](img/speech.png)
@@ -40,7 +40,7 @@ For you Kubernetes savy folks, yes this is labeling Nodes through traditional Ku
 
 ## Install
 
-- After labelling, click Install 
+- After labelling, click Install
 - Head over to the Pods page to watch the Pods come up (Status = Running).
   - Click the speech-nandy-io namespace to focus on the Pods we care about
 - Once they're all up, head back to Apps
@@ -59,16 +59,16 @@ Yep, that's a URL on your local network based on the App and Service name. For y
 
 ## Uzbeki Blues
 
-If you're on Windows, the URL of the Apps might not work.  If you're on an Android tablet, accessing the Apps probably won't work at all. We're using mDNS here and it's not fully supported on Windows/Android in some cases. 
+If you're on Windows, the URL of the Apps might not work.  If you're on an Android tablet, accessing the Apps probably won't work at all. We're using mDNS here and it's not fully supported on Windows/Android in some cases.
 
-Fortunately, we have a way around it, if you're down with some network settings. 
+Fortunately, we have a way around it, if you're down with some network settings.
 
 - Figure out the IP of your Master node
   - You should have already locked that in setting everything up
-- Go into your device's network DNS settings 
+- Go into your device's network DNS settings
 - Replace the DNS servers with the IP for your Master node
 
-NOTE: You best keep your Master node running for that device to work properly, whether you're using Klot I/O or not. 
+NOTE: You best keep your Master node running for that device to work properly, whether you're using Klot I/O or not.
 
 That's because the Master node of Klot I/O acts as a DNS server, serving our special mDNS records through regualr DNS, and passing everything else through to whatever the Pi is using for DNS. So while your errants devices can't use mDNS, we can fake them out a little with some mini DNS (Don't look up that term - I just made it up).
 
@@ -80,7 +80,7 @@ Here's a list of all the Apps with their current statuses:
 - yellow - barely remember how it works
 - red - vaporware
 
-| name | status | description | 
+| name | status | description |
 | ---- | ------ | ----------- |
 | [redis.klot.io](https://github.com/klot-io/redis) | blue | Redis server |
 | [mysql.klot.io](https://github.com/klot-io/mysql) | blue | MySQL server |

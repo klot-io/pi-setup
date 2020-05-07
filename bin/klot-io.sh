@@ -5,6 +5,9 @@ set -e
 echo "setting account password"
 echo 'pi:kloudofthings' | sudo chpasswd
 
+echo "turning off rfkill"
+sudo rfkill unblock 0
+
 echo "setting hostname to klot-io"
 sudo sed -i s/raspberrypi/klot-io/g /etc/hosts
 sudo hostnamectl --transient set-hostname klot-io
