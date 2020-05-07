@@ -21,7 +21,7 @@ During installation, a lot of services and devices need to initialize and connec
 
 ### Burn klot.io to SD cards
 
-1. On your local workstation, download [pi-0.2.img.zip](https://klot-io.sfo2.cdn.digitaloceanspaces.com/pi-0.2.img.zip).
+1. On your local workstation, download [pi-0.3.img.zip](https://klot-io.sfo2.cdn.digitaloceanspaces.com/pi-0.3.img.zip).
 2. Burn this image to each of your SD cards.
 
 ### Add Raspberry Pi master node to your network
@@ -119,7 +119,7 @@ New requirements:
 
 Basically, you can run the Docker GUI locally and burn your settings right onto the cards before putting them into the Pi's.
 
-1. On your local workstation, download [pi-0.2.img.zip](https://klot-io.sfo2.cdn.digitaloceanspaces.com/pi-0.2.img.zip).
+1. On your local workstation, download [pi-0.3.img.zip](https://klot-io.sfo2.cdn.digitaloceanspaces.com/pi-0.3.img.zip).
 2. Burn this image to each of your SD cards.
 3. Pop the SD card out after burning and pop it back in.
 4. Enable the cross compiler with `make cross`. This allows ARM (Raspberry Pi processor) images to run on Docker.
@@ -167,7 +167,7 @@ cluster:   # name of the cluster
 name:      # name of the node (worker only)
 ```
 
-1. On your local workstation, download [pi-0.2.img.zip](https://klot-io.sfo2.cdn.digitaloceanspaces.com/pi-0.2.img.zip).
+1. On your local workstation, download [pi-0.3.img.zip](https://klot-io.sfo2.cdn.digitaloceanspaces.com/pi-0.3.img.zip).
 2. Burn this image to each of your SD cards.
 3. Pop the SD card out after burning and pop it back in.
 4. Create the three YAML files shown above in `/Volumes/boot/klot-io/config`.
@@ -188,7 +188,7 @@ This is how to boot off of an SSD hard drive for installation. I put this here b
 
 ### ### Burn klot.io to SSD
 
-1. On your local workstation, download [pi-0.2.img.zip](https://klot-io.sfo2.cdn.digitaloceanspaces.com/pi-0.2.img.zip).
+1. On your local workstation, download [pi-0.3.img.zip](https://klot-io.sfo2.cdn.digitaloceanspaces.com/pi-0.3.img.zip).
 2. Burn this image to each of your SSD.
 3. (Optional - set kubernetes to 'reset' for now, just safer) `make config`.
 4. Boot the Pi with the SSD attached (no SD card).

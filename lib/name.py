@@ -139,7 +139,7 @@ class Daemon(object):
                 continue
 
             node = f"{sorted(nodes)[0]}.local"
-            host = f"{name}.{namespace}.{self.cluster}-klot-io.local"
+            host = f"{name}-{namespace}-{self.cluster}-klot-io.local"
 
             aliases[host] = node
 

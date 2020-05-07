@@ -272,7 +272,7 @@ If you want ot make your own image, go right ahead.
 On Mac:
 
 ```
-# Burn the latest raspbian image (images/2019-09-26-raspbian-buster-lite.zip currently) first then, pop it out and back in, then
+# Burn the latest lite raspbian image (2020-02-13-raspbian-buster-lite.zip currently) first then, pop it out and back in, then
 make build
 make boot
 ```
@@ -305,7 +305,9 @@ Will install and run the config daemon and then tails its logs to make sure it's
 
 The daemon sets hostname to klot-io, change pi password to 'kloudofthings', and reset network to eth0 (if needed)
 
-## enable tmpfs
+## enable tmpfs (optional)
+
+This will extend the SD card's life but I don't do it anymore as I think it causes all sorts of other problems.
 
 ```
 ./tmpfs.sh

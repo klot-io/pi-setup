@@ -637,7 +637,7 @@ class App(flask_restful.Resource):
             "version": obj["source"].get("version", ''),
             "namespace": obj.get("spec", {}).get("namespace", ""),
             "description": obj.get("spec", {}).get("description", ''),
-            "action": obj.get("action","Define"),
+            "action": obj.get("action","Preview"),
             "status": obj.get("status","Discovered"),
             "actions": []
         }
@@ -651,16 +651,15 @@ class App(flask_restful.Resource):
         if "settings" in obj.get("spec", {}):
             app["actions"].append("Settings")
 
-        if app["status"] in ["Defined"] and app["action"] not in ["Download", "Install"]:
-            app["actions"].append("Download")
+        if app["action"] == "Retry" and "resources" not in obj:
+            app["actions"].append("Preview")
 
-        if app["status"] in ["Defined", "Downloaded"] and app["action"] not in ["Install"]:
-            app["actions"].append("Install")
-
-        if app["status"] in ["NeedSettings", "Error"] or (app["status"] in ["Defined", "Downloaded"] and app["action"] not in ["Install"]):
-            app["actions"].append("Delete")
-
-        if app["status"] in ["Installed"] and app["action"] not in ["Uninstall"]:
+        if "created" not in obj:
+            if app["action"] != "Delete":
+                app["actions"].append("Delete")
+            if app["action"] != "Install":
+                app["actions"].append("Install")
+        elif app["action"] != "Uninstall":
             app["actions"].append("Uninstall")
 
         if not short:
@@ -893,6 +892,9 @@ class AppRIU(App):
 
         obj["action"] = flask.request.json["action"]
 
+        if "error" in obj:
+            del obj["error"]
+
         pykube.KlotIOApp(kube(), obj).replace()
 
         return {self.singular: self.to_dict(obj)}
@@ -940,9 +942,13 @@ class AppRIU(App):
 
             for value in current:
                 if value not in original:
+
                     node = pykube.Node.objects(kube()).get(name=value).obj
                     node["metadata"]["labels"][label] = field.content["node"]
                     pykube.Node(kube(), node).replace()
+
+                    if obj["status"] == "Installed":
+                        obj["status"] = "Installing"
 
             for value in original:
                 if value not in current:
