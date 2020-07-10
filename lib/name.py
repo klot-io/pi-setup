@@ -3,7 +3,6 @@ import time
 import yaml
 import socket
 import pykube
-import StringIO
 import dnslib
 import dnslib.server
 
@@ -15,17 +14,17 @@ class KlotIOResolver():
 
     def a_rr(self, host, ip):
 
-        return dnslib.RR.fromZone(StringIO.StringIO("%s. 15 A %s." % (host, ip)))
+        return dnslib.RR.fromZone(f"{host}. 15 A {ip}.")
 
     def cname_rr(self, host, alias):
 
-        return dnslib.RR.fromZone(StringIO.StringIO("%s. 15 CNAME %s." % (host, alias)))
+        return dnslib.RR.fromZone(f"{host}. 15 CNAME {alias}.")
 
     def resolve(self, request, handler):
 
         reply = request.reply()
 
-        fqdn = '.'.join(request.questions[0].qname.label)
+        fqdn = '.'.join([piece.decode('utf-8') for piece in request.questions[0].qname.label])
 
         if fqdn in self.daemon.ips:
             reply.add_answer(*self.a_rr(fqdn, self.daemon.ips[fqdn]))
@@ -92,7 +91,7 @@ class Daemon(object):
                 if address["type"] == "InternalIP":
                     ip = address["address"]
                 elif address["type"] == "Hostname":
-                    host = "%s.local" % address["address"]
+                    host = f"{address['address']}.local"
 
             ips[host] = ip
 
@@ -105,8 +104,8 @@ class Daemon(object):
         for service in [service.obj for service in pykube.Service.objects(self.kube).filter(namespace=pykube.all)]:
 
             if (
-                "type" not in service["spec"] or service["spec"]["type"] != "LoadBalancer" or 
-                "ports" not in service["spec"] or "selector" not in service["spec"] or 
+                "type" not in service["spec"] or service["spec"]["type"] != "LoadBalancer" or
+                "ports" not in service["spec"] or "selector" not in service["spec"] or
                 "namespace" not in service["metadata"]
             ):
                 continue
@@ -130,7 +129,7 @@ class Daemon(object):
             nodes = []
 
             for pod in [pod.obj for pod in pykube.Pod.objects(self.kube).filter(
-                namespace=service["metadata"]["namespace"], 
+                namespace=service["metadata"]["namespace"],
                 selector=service["spec"]["selector"]
             )]:
                 if "nodeName" in pod["spec"] and "podIP" in pod["status"]:
@@ -139,8 +138,8 @@ class Daemon(object):
             if not nodes:
                 continue
 
-            node = "%s.local" % sorted(nodes)[0]
-            host = "%s.%s.%s-klot-io.local" % (name, namespace, self.cluster)
+            node = f"{sorted(nodes)[0]}.local"
+            host = f"{name}-{namespace}-{self.cluster}-klot-io.local"
 
             aliases[host] = node
 

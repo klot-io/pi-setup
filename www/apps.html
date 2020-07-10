@@ -9,12 +9,12 @@
     <form class="uk-form">
         <div class="uk-form-row">
             Discover <input id="name" type="text" placeholder="app" class="uk-form-width-medium"/> from
-            <input 
+            <input
                 type="radio" name="from" value="github"
                 OnClick="DRApp.current.controller.apps_change();"
             /> GitHub
-            <input 
-                type="radio" name="from" value="url" 
+            <input
+                type="radio" name="from" value="url"
                 OnClick="DRApp.current.controller.apps_change();"
             /> URL
         </div>
@@ -27,8 +27,8 @@
             <input id="url" placeholder="url" type="text" class="uk-form-width-large"/>
         </div>
         <div id="apps_action" class="uk-form-row" style="display: none;">
-            <button type="button" onClick="DRApp.current.controller.apps_action('Download');" class="uk-button uk-button-primary">
-                Download
+            <button type="button" onClick="DRApp.current.controller.apps_action('Preview');" class="uk-button uk-button-primary">
+                Preview
             </button>
             <button type="button" onClick="DRApp.current.controller.apps_action('Install');" class="uk-button uk-button-primary">
                 Install
@@ -49,29 +49,23 @@
         <tbody>
             {{~it.apps :app}}
             <tr>
-                <td OnClick="DRApp.go('app','{{!app.name}}')" class="clickable">{{=app.name}}</td>
-                <td OnClick="DRApp.go('app','{{!app.name}}')" class="clickable">{{=app.name}}</td>
-                <td OnClick="DRApp.go('app','{{!app.name}}')" class="clickable">{{=app.description}}</td>
-                <td OnClick="DRApp.go('app','{{!app.name}}')" class="clickable">{{=app.action}}</td>
-                <td OnClick="DRApp.go('app','{{!app.name}}')" class="clickable">{{=app.status}}</td>
+                <td>{{=app.name}}</td>
+                <td>{{=app.version}}</td>
+                <td>{{=app.description}}</td>
+                <td>{{=app.action}}</td>
+                <td>{{=app.status}}</td>
                 <td>
-                    {{?app.status == "Downloaded" && app.action != "Install"}}
-                        <button type="button" onClick="DRApp.current.controller.app_action('{{!app.name}}', 'Install');" class="uk-button uk-button-primary">
-                            Install
-                        </button>
+                    {{?app.url}}
+                        <a class="uk-button uk-button-primary" href="{{!app.url}}" target="{{!app.name}}">Open</a>
                     {{?}}
-                    {{?app.status == "Error" || (app.status == "Downloaded" && app.action != "Install")}}
-                        <button type="button" onClick="DRApp.current.controller.app_delete('{{!app.name}}');" class="uk-button uk-button-primary">
-                            Delete
+                    {{~app.actions :action}}
+                        <button type="button" onClick="DRApp.current.controller.app_action('{{!app.name}}', '{{!action}}');" class="uk-button uk-button-primary">
+                            {{=action}}
                         </button>
-                    {{??app.action != "Uninstall" && app.status == "Installed"}}
-                        {{?app.url}}
-                            <a class="uk-button uk-button-primary" href="{{!app.url}}" target="{{!app.name}}">Open</a>
-                        {{?}}
-                        <button type="button" onClick="DRApp.current.controller.app_action('{{!app.name}}', 'Uninstall');" class="uk-button uk-button-primary">
-                            Uninstall
-                        </button>
-                    {{?}}
+                    {{~}}
+                    <button type="button" onClick="DRApp.go('info','{{!app.name}}');" class="uk-button uk-button-primary">
+                        Info
+                    </button>
                 </td>
             </tr>
             {{~}}

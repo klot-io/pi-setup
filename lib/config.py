@@ -2,19 +2,15 @@ import os
 import time
 import copy
 import glob
-import socket
 import hashlib
 
-import subprocess
 import traceback
 
 import yaml
 import pykube
-import urlparse
 import requests
 import netifaces
 
-import avahi
 import dbus
 import encodings.idna
 
@@ -72,12 +68,12 @@ class Daemon(object):
 
     def execute(self, command):
 
-        print command
+        print(command)
         os.system(command)
 
     def reset(self):
 
-        print "reseting"
+        print("reseting")
 
         self.execute("rm /boot/klot-io/reset")
 
@@ -92,7 +88,7 @@ class Daemon(object):
 
     def restart(self):
 
-        print "restarting"
+        print("restarting")
 
         self.execute("cp /boot/klot-io/lib/config.py /opt/klot-io/lib/config.py")
         self.execute("chown 1000:1000 /opt/klot-io/lib/config.py")
@@ -107,7 +103,7 @@ class Daemon(object):
         reloaded = False
 
         for yaml_path in glob.glob("/boot/klot-io/config/*.yaml"):
-            self.execute("mv %s /opt/klot-io/config/" % yaml_path)
+            self.execute(f"mv {yaml_path} /opt/klot-io/config/")
             reloaded = True
 
         if reloaded:
@@ -132,8 +128,8 @@ class Daemon(object):
 
     def differs(self, expected, actual):
 
-        print "actual:   %s" % actual
-        print "expected: %s" % expected
+        print(f"actual:   {actual}")
+        print(f"expected: {expected}")
 
         return expected != actual
 
@@ -164,16 +160,34 @@ class Daemon(object):
     CLASS_IN = 0x01
     TYPE_CNAME = 0x05
 
+    # Got these from these from the avahi module
+    PROTO_UNSPEC = -1
+    IF_UNSPEC = -1
+
+    DBUS_NAME = "org.freedesktop.Avahi"
+    DBUS_INTERFACE_SERVER = DBUS_NAME + ".Server"
+    DBUS_PATH_SERVER = "/"
+    DBUS_INTERFACE_ENTRY_GROUP = DBUS_NAME + ".EntryGroup"
+
     @staticmethod
     def encode_cname(name):
-        return '.'.join(  encodings.idna.ToASCII(p) for p in name.split('.') if p )
+        return '.'.join(  encodings.idna.ToASCII(p).decode('utf-8') for p in name.split('.') if p )
 
     @staticmethod
     def encode_rdata(name):
         def enc(part):
-            a =  encodings.idna.ToASCII(part)
+            a =  encodings.idna.ToASCII(part).decode('utf-8')
             return chr(len(a)), a
         return ''.join( '%s%s' % enc(p) for p in name.split('.') if p ) + '\0'
+
+    @staticmethod
+    def string_to_byte_array(s):
+        r = []
+
+        for c in s:
+            r.append(dbus.Byte(ord(c)))
+
+        return r
 
     def avahi(self):
 
@@ -182,26 +196,26 @@ class Daemon(object):
         if self.cnames:
 
             bus = dbus.SystemBus()
-            server = dbus.Interface(bus.get_object(avahi.DBUS_NAME, avahi.DBUS_PATH_SERVER), avahi.DBUS_INTERFACE_SERVER)
-            group = dbus.Interface(bus.get_object(avahi.DBUS_NAME, server.EntryGroupNew()), avahi.DBUS_INTERFACE_ENTRY_GROUP)
+            server = dbus.Interface(bus.get_object(self.DBUS_NAME, self.DBUS_PATH_SERVER), self.DBUS_INTERFACE_SERVER)
+            group = dbus.Interface(bus.get_object(self.DBUS_NAME, server.EntryGroupNew()), self.DBUS_INTERFACE_ENTRY_GROUP)
 
             for cname in self.cnames:
                 group.AddRecord(
-                    avahi.IF_UNSPEC,
-                    avahi.PROTO_UNSPEC,
+                    self.IF_UNSPEC,
+                    self.PROTO_UNSPEC,
                     dbus.UInt32(0),
                     self.encode_cname(cname),
                     self.CLASS_IN,
                     self.TYPE_CNAME,
                     self.TTL,
-                    avahi.string_to_byte_array(self.encode_rdata(server.GetHostNameFqdn()))
+                    self.string_to_byte_array(self.encode_rdata(server.GetHostNameFqdn()))
                 )
 
             group.Commit()
 
     def account(self):
 
-        self.execute("echo 'pi:%s' | chpasswd" % self.config["account"]["password"])
+        self.execute(f"echo 'pi:{self.config['account']['password']}' | chpasswd")
 
         if self.config["account"]["ssh"] == "enabled":
             self.execute("systemctl enable ssh")
@@ -224,7 +238,7 @@ class Daemon(object):
 
         if self.differs(expected, actual):
 
-            os.system("sed -i 's/allow-interfaces=.*/allow-interfaces=%s/' /etc/avahi/avahi-daemon.conf" % expected)
+            os.system(f"sed -i 's/allow-interfaces=.*/allow-interfaces={expected}/' /etc/avahi/avahi-daemon.conf")
             self.avahi()
 
         if expected == "eth0":
@@ -279,7 +293,7 @@ class Daemon(object):
             with open("/etc/hostname", "w") as hostname_file:
                 hostname_file.write(expected)
 
-            self.execute("hostnamectl set-hostname %s" % expected)
+            self.execute(f"hostnamectl set-hostname {expected}")
 
             avahi = True
 
@@ -287,7 +301,7 @@ class Daemon(object):
             actual = hosts_file.readlines()[-1].split("\t")[-1].strip()
 
         if self.differs(expected, actual):
-            self.execute("sed -i 's/127.0.1.1\t.*/127.0.1.1\t%s/' /etc/hosts" % expected)
+            self.execute(f"sed -i 's/127.0.1.1\t.*/127.0.1.1\t{expected}/' /etc/hosts")
             avahi = True
 
         if avahi:
@@ -302,13 +316,13 @@ class Daemon(object):
                 not os.path.exists("/var/lib/rancher/k3s") and
                 not os.path.exists("/home/pi/.kube/config")
             ):
-                print "already reset kubernetes"
+                print("already reset kubernetes")
                 return
 
             try:
                 pykube.Node.objects(self.kube).get(name=self.node).delete()
             except pykube.ObjectDoesNotExist:
-                print "node %s not found" % self.node
+                print(f"node {self.node} not found")
             except Exception:
                 traceback.print_exc()
 
@@ -326,8 +340,16 @@ class Daemon(object):
 
             return
 
+        elif self.config["kubernetes"]["role"] == "master":
+
+            self.host(f"{self.config['kubernetes']['cluster']}-klot-io")
+
+        elif self.config["kubernetes"]["role"] == "worker":
+
+            self.host(f"{self.config['kubernetes']['name']}-{self.config['kubernetes']['cluster']}-klot-io")
+
         if os.path.exists("/home/pi/.kube/config"):
-            print "already initialized"
+            print("already initialized")
             return
 
         attempts = 20
@@ -335,7 +357,7 @@ class Daemon(object):
         while attempts:
 
             interfaces = self.interfaces()
-            print "interfaces: %s" % interfaces
+            print(f"interfaces: {interfaces}")
 
             if self.config["network"]['interface'] in interfaces:
                 break
@@ -347,11 +369,9 @@ class Daemon(object):
 
             ip = interfaces[self.config["network"]['interface']]
 
-            self.host("%s-klot-io" % self.config["kubernetes"]["cluster"])
-
             self.execute(" ".join([
                 'INSTALL_K3S_VERSION=v0.9.1',
-                'K3S_CLUSTER_SECRET=%s' % self.config["account"]["password"],
+                f'K3S_CLUSTER_SECRET={self.config["account"]["password"]}',
                 'INSTALL_K3S_EXEC="--no-deploy=traefik --no-deploy=servicelb --write-kubeconfig-mode=644"',
                 '/opt/klot-io/bin/k3s.sh',
                 'server'
@@ -360,7 +380,7 @@ class Daemon(object):
             with open("/etc/rancher/k3s/k3s.yaml", "r") as config_file:
                 config = yaml.safe_load(config_file)
 
-            config["clusters"][0]["cluster"]["server"] = 'https://%s:6443' % ip
+            config["clusters"][0]["cluster"]["server"] = f'https://{ip}:6443'
             config["clusters"][0]["name"] = self.node
             config["users"][0]["name"] = self.node
             config["contexts"][0]["name"] = self.node
@@ -370,17 +390,15 @@ class Daemon(object):
 
         elif self.config["kubernetes"]["role"] == "worker":
 
-            self.host("%s-%s-klot-io" % (self.config["kubernetes"]["name"], self.config["kubernetes"]["cluster"]))
-
             config = requests.get(
-                'http://%s-klot-io.local/api/kubectl' % self.config["kubernetes"]["cluster"],
+                f'http://{self.config["kubernetes"]["cluster"]}-klot-io.local/api/kubectl',
                 headers={"x-klot-io-password": self.config["account"]['password']},
             ).json()["kubectl"]
 
             self.execute(" ".join([
                 'INSTALL_K3S_VERSION=v0.9.1',
-                'K3S_URL=%s' % config["clusters"][0]["cluster"]["server"],
-                'K3S_CLUSTER_SECRET=%s' % self.config["account"]["password"],
+                f'K3S_URL={config["clusters"][0]["cluster"]["server"]}',
+                f'K3S_CLUSTER_SECRET={self.config["account"]["password"]}',
                 '/opt/klot-io/bin/k3s.sh',
                 'agent'
             ]))
@@ -395,11 +413,102 @@ class Daemon(object):
 
         if self.config["kubernetes"]["role"] == "master":
             self.execute("sudo -u pi -- kubectl apply -f /opt/klot-io/kubernetes/klot-io-app-crd.yaml")
+            self.execute("sudo -u pi -- kubectl apply -f /opt/klot-io/kubernetes/klot-io-apps.yaml")
 
-    def resources(self, obj):
+    def manifest(self, source):
 
-        if "resources" in obj:
+        if "url" in source:
+
+            url = source["url"]
+
+        elif "site" in source and source["site"] == "github.com":
+
+            if "repo" not in source:
+                raise AppException(f"missing source.repo for {source['site']}")
+
+            repo = source["repo"]
+            version = source.get("version", "master")
+
+            url = f"https://raw.githubusercontent.com/{repo}/{version}/"
+
+        else:
+
+            raise Exception(f"cannot define {source}")
+
+        if url.endswith("/"):
+
+            path = source.get("path", "klot-io-app.yaml")
+            url = f"{url}{path}"
+
+        print(f"requesting {url}")
+
+        response = requests.get(url)
+
+        if response.status_code != 200:
+            raise Exception(f"error from source {source} url: {url} - {response.status_code}: {response.text}")
+
+        return response.text
+
+    def discover(self, name, source, action):
+
+        try:
+            pykube.KlotIOApp.objects(self.kube).get(name=name).obj
             return
+        except pykube.ObjectDoesNotExist:
+            pass
+
+        print(f"discovering {name} with {source} for {action}")
+
+        obj = {
+            "apiVersion": "klot.io/v1",
+            "kind": "KlotIOApp",
+            "metadata": {
+                "name": name,
+            },
+            "source": source,
+            "action": action,
+            "status": "Discovered"
+        }
+
+        pykube.KlotIOApp(self.kube, obj).create()
+
+    def define(self, obj):
+
+        print(f"defining {obj['metadata']['name']} from {obj['source']}")
+
+        definition = yaml.safe_load(self.manifest(obj['source']))
+
+        if not isinstance(definition, dict):
+            raise Exception(f"source {obj['source']} produced non dict {definition}")
+
+        if "spec" not in definition:
+            raise Exception(f"source {obj['source']} missing spec {definition}")
+
+        if obj['metadata']['name'] != definition.get("metadata",{}).get("name"):
+            raise Exception(f"source {obj['source']} name does not match {obj['metadata']['name']} {definition}")
+
+        obj["spec"] = definition['spec']
+        obj["status"] = "Defined"
+
+        for app in obj["spec"].get("requires", []) + obj["spec"].get("recommends", []):
+            self.discover(app['name'], app['source'], 'Preview')
+
+    def act(self, name, action):
+
+        obj = pykube.KlotIOApp.objects(self.kube).get(name=name).obj
+
+        if obj.get("action", "Preview") == "Install" and action == "Preview":
+            return
+
+        print(f"setting {name} for {action}")
+
+        obj["action"] = action
+
+        pykube.KlotIOApp(self.kube, obj).replace()
+
+    def download(self, obj):
+
+        print(f"downloading {obj['metadata']['name']} from {obj['source']}")
 
         obj["resources"] = []
 
@@ -408,43 +517,13 @@ class Daemon(object):
             source = copy.deepcopy(obj["source"])
             source.update(manifest)
 
-            print "parsing %s" % source
-
-            if "url" in source:
-
-                url = source["url"]
-
-            elif "site" in source and source["site"] == "github.com":
-
-                if "repo" not in source:
-                    raise AppException("missing source.repo for %s" % source["site"])
-
-                repo = source["repo"]
-                version = source["version"] if "version" in source else "master"
-
-                url = "https://raw.githubusercontent.com/%s/%s/" % (repo, version)
-
-            else:
-
-                raise AppException("cannot parse %s" % source)
-
-            if url.endswith("/"):
-
-                if "path" not in source:
-                    raise AppException("%s has no pathing" % source)
-
-                url = "%s/%s" % (url, source["path"])
-
-            print "fetching %s" % url
-
-            response = requests.get(url)
-
-            if response.status_code != 200:
-                raise AppException("%s error from %s: %s" % (response.status_code, url, response.text))
-
-            obj["resources"].extend(list(yaml.safe_load_all(response.text)))
+            obj["resources"].extend(list(yaml.safe_load_all(self.manifest(source))))
 
         obj["resources"].sort(key= lambda resource: RESOURCES.index(resource["kind"]) if resource["kind"] in RESOURCES else len(RESOURCES))
+        obj["status"] = "Downloaded"
+
+        for app in obj["spec"].get("requires", []):
+            self.act(app['name'], 'Preview')
 
     def display(self, obj):
 
@@ -457,189 +536,189 @@ class Daemon(object):
 
         return "/".join(display)
 
-    def app(self, requirement, action):
+    def settings(self, obj):
 
-        name = requirement["name"]
+        print(f"creating settings for {obj['metadata']['name']}")
 
-        print "searching for %s" % requirement["name"]
+        obj = {
+            "apiVersion": "v1",
+            "kind": "ConfigMap",
+            "metadata": {
+                "namespace": obj["spec"]["namespace"],
+                "name": "config",
+            },
+            "data": {"settings.yaml": yaml.safe_dump(obj["settings"])}
+        }
 
         try:
-            app = pykube.App.objects(self.kube).filter().get(name=requirement["name"]).obj
-            print "found %s %s" % (app["metadata"]["name"], app["source"])
-            return app
-        except pykube.ObjectDoesNotExist:
-            pass
+            pykube.ConfigMap(self.kube, obj).replace()
+        except pykube.PyKubeError:
+            pykube.ConfigMap(self.kube, obj).delete()
+            pykube.ConfigMap(self.kube, obj).create()
 
-        source = requirement["source"]
+    def create(self, obj):
 
-        print "creating %s" % source
+        for app in obj["spec"].get("requires", []):
+            self.act(app['name'], 'Install')
 
-        if "url" in source:
+        if "settings" in obj["spec"] and "settings" not in obj:
+            print(f"need settings for {obj['metadata']['name']}")
+            obj['status'] = "NeedSettings"
+            return
 
-            url = source["url"]
+        print(f"checking requirements for {obj['metadata']['name']}")
 
-        elif "site" in source and source["site"] == "github.com":
+        for app in obj["spec"].get("requires", []):
+            if pykube.KlotIOApp.objects(self.kube).get(name=app['name']).obj.get("status") != "Installed":
+                print(f"need {app['name']} for {obj['metadata']['name']}")
+                return
 
-            if "repo" not in source:
-                raise AppException("missing source.repo for %s" % source["site"])
+        print(f"creating {obj['metadata']['name']}")
 
-            repo = source["repo"]
-            version = source["version"] if "version" in source else "master"
+        for resource in obj["resources"]:
+            print(f"applying {self.display(resource)}")
+            Resource = getattr(pykube, resource["kind"])
+            try:
+                Resource(self.kube, resource).replace()
+            except pykube.PyKubeError:
+                Resource(self.kube, resource).delete()
+                Resource(self.kube, resource).create()
 
-            url = "https://raw.githubusercontent.com/%s/%s/" % (repo, version)
+        if "settings" in obj:
+            self.settings(obj)
 
-        else:
-
-            raise Exception("cannot preview %s" % source)
-
-        if url.endswith("/"):
-
-            path = source["path"] if "path" in source else "klot-io-app.yaml"
-            url = "%s/%s" % (url, path)
-
-        print "requesting %s" % url
-
-        response = requests.get(url)
-
-        if response.status_code != 200:
-            raise Exception("error from source %s url: %s - %s: %s" % (source, url, response.status_code, response.text))
-
-        obj = yaml.safe_load(response.text)
-
-        if not isinstance(obj, dict):
-            raise Exception("source %s produced non dict %s" % (source, obj))
-
-        if obj["apiVersion"] != "klot.io/v1":
-            raise Exception("source %s apiVersion not klot.io/v1 %s" % (source, obj))
-
-        if obj["kind"] != "App":
-            raise Exception("source %s kind not App %s" % (source, obj))
-
-        if "spec" not in obj:
-            raise Exception("source %s missing spec %s" % (source, obj))
-
-        if "metadata" not in obj:
-            raise Exception("source %s missing metadata %s" % (source, obj))
-
-        if "version" not in obj["metadata"]:
-            raise Exception("source %s missing metadata.version %s" % (source, obj))
-
-        if name != obj["metadata"].get("name"):
-            raise Exception("source %s name does not match %s %s" % (source, name, obj))
-
-        obj["source"] = source
-        obj["action"] = action
-        obj["status"] = "Discovered"
-
-        pykube.App(self.kube, obj).create()
-
-        return obj
-
-    def source(self, obj):
-
-        if "requires" in obj["spec"]:
-
-            for requirement in obj["spec"]["requires"]:
-
-                print "sourcing %s" % requirement
-
-                app = self.app(requirement, obj["action"])
-
-                print "sourced %s %s" % (app["metadata"]["name"], app["source"])
-
-    def satisfy(self, obj):
-
-        satisfied = True
-
-        if "requires" in obj["spec"]:
-
-            for requirement in obj["spec"]["requires"]:
-
-                print "satisfying %s" % requirement
-
-                app = self.app(requirement, obj["action"])
-
-                if app["status"] != "Installed":
-
-                    satisfied = False
-
-                    if obj["action"] == "Install" and app["status"] != "Error":
-                        app["action"] = "Install"
-                        pykube.App(self.kube, app).replace()
-
-        return satisfied
+        obj["created"] = True
+        obj["status"] = "Installing"
 
     def url(self, obj):
 
-        if "url" not in obj["spec"]:
-            return
+        url = f"{obj['spec']['url']['protocol']}://{obj['spec']['url']['host'].replace('.', '-')}-{self.node}.local"
 
-        print "creating url %s " % obj["spec"]["url"]
+        if "port" in url:
+            url = f"{url}:{obj['spec']['url']['port']}"
 
-        obj["url"] = "%s://%s.%s.local" % (obj["spec"]["url"]["protocol"], obj["spec"]["url"]["host"], self.node)
+        if "path" in url:
+            url = f"{url}/{obj['spec']['url']['path']}"
 
-        if "port" in obj["spec"]["url"]:
-            obj["url"] = "%s:%s" % (obj["url"], obj["spec"]["url"]["port"])
+        return url
 
-        if "path" in obj["spec"]["url"]:
-            obj["url"] = "%s/%s" % (obj["url"], obj["path"])
+    def check(self, obj):
 
-        print "created url %s " % obj["url"]
+        print(f"checking {obj['metadata']['name']}")
 
-    def apps(self):
+        url = None
 
-        for obj in [app.obj for app in pykube.App.objects(self.kube).filter()]:
+        for resource in obj["resources"]:
+
+            print(f"checking {self.display(resource)} status")
+
+            check = getattr(pykube, resource["kind"])(self.kube, resource)
+
+            try:
+                check.reload()
+            except pykube.PyKubeError:
+                print(f"failed to reload {self.display(resource)}")
+                return False
+
+            if resource["kind"] == "Job":
+
+                expected = 1
+                actual = check.obj.get("status", {}).get("succeeded", 0)
+
+            elif resource["kind"] == "DaemonSet":
+
+                expected = check.obj.get("status", {}).get("desiredNumberScheduled", 0)
+                actual = check.obj.get("status", {}).get("numberReady", 0)
+
+            elif resource["kind"] == "Deployment":
+
+                expected = check.obj.get("status", {}).get("replicas", 0)
+                actual = check.obj.get("status", {}).get("readyReplicas", 0)
+
+            else:
+
+                continue
+
+            if expected != actual:
+                print(f"{self.display(resource)} not ready {expected} != {actual}")
+                return False
+
+        if "url" in obj["spec"]:
+
+            url = self.url(obj)
+            print(f"checking {url}")
 
             try:
 
-                if "status" not in obj:
-                    obj["status"] = "Discovered"
-
-                if "action" not in obj:
-                    obj["action"] = "Download"
-
-                if obj["status"] == "Discovered" and "resources" not in obj:
-                    self.resources(obj)
-                    self.source(obj)
-                    obj["status"] = "Downloaded"
-
-                if obj["action"] == "Install" and obj["status"] not in ["Installed", "Error"] and self.satisfy(obj):
-
-                    print "installing %s" % self.display(obj)
-                    for resource in obj["resources"]:
-                        print "applying %s" % self.display(resource)
-                        Resource = getattr(pykube, resource["kind"])
-                        try:
-                            Resource(self.kube, resource).replace()
-                        except pykube.PyKubeError:
-                            Resource(self.kube, resource).delete()
-                            Resource(self.kube, resource).create()
-
-                    self.url(obj)
-
-                    obj["status"] = "Installed"
-
-                elif obj["status"] == "Installed" and obj["action"] == "Uninstall":
-
-                    print "uninstalling %s" % self.display(obj)
-
-                    for resource in reversed(obj["resources"]):
-                        print "deleting %s" % self.display(resource)
-                        getattr(pykube, resource["kind"])(self.kube, resource).delete()
-
-                    if "url" in obj:
-                        del obj["url"]
-
-                    obj["action"] = "Download"
-                    obj["status"] = "Downloaded"
+                requests.get(url).raise_for_status()
 
             except Exception as exception:
 
+                print(f"{url} not ready {exception}")
+                return False
+
+            obj['url'] = url
+
+        print(f"{obj['metadata']['name']} installed")
+
+        obj["status"] = "Installed"
+
+        return True
+
+    def destroy(self, obj):
+
+        print(f"destroying {self.display(obj)}")
+
+        for resource in reversed(obj["resources"]):
+            print(f"deleting {self.display(resource)}")
+            try:
+                getattr(pykube, resource["kind"])(self.kube, resource).delete()
+            except pykube.PyKubeError as exception:
+                print(f"failed to delete {self.display(resource)}: {exception}")
+
+        if "created" in obj:
+            del obj["created"]
+
+        if "url" in obj:
+            del obj["url"]
+
+        obj["action"] = "Preview"
+        obj["status"] = "Downloaded"
+
+    def apps(self):
+
+        for obj in [app.obj for app in pykube.KlotIOApp.objects(self.kube).filter()]:
+
+            obj.setdefault("status", "Discovered")
+            obj.setdefault("action", "Preview")
+
+            if obj["action"] == "Retry" or obj["status"] == "NeedSettings":
+                continue
+
+            try:
+
+                if "spec" not in obj:
+                    self.define(obj)
+                elif "resources" not in obj:
+                    self.download(obj)
+                elif obj['action'] == "Install" and "created" not in obj:
+                    self.create(obj)
+                elif obj['action'] == "Install" and obj.get("status") in ["Installing"]:
+                    if not self.check(obj):
+                        continue
+                elif obj['action'] == "Uninstall":
+                    self.destroy(obj)
+                else:
+                    continue
+
+            except Exception as exception:
+
+                obj["action"] = "Retry"
                 obj["status"] = "Error"
                 obj["error"] = traceback.format_exc().splitlines()
                 traceback.print_exc()
 
-            pykube.App(self.kube, obj).replace()
+            pykube.KlotIOApp(self.kube, obj).replace()
 
     def nginx(self, expected):
 
@@ -669,7 +748,7 @@ class Daemon(object):
             self.execute("rm -f /etc/nginx/conf.d/*.conf")
 
             for host in expected:
-                with open("/etc/nginx/conf.d/%s.conf" % host, "w") as nginx_file:
+                with open(f"/etc/nginx/conf.d/{host}.conf", "w") as nginx_file:
                     for server in expected[host]["servers"]:
                         nginx_file.write(SERVER % (server["external"], host, server["protocol"], expected[host]["ip"], server["internal"]))
 
@@ -726,7 +805,7 @@ class Daemon(object):
 
             ip = node_ips[self.node]
 
-            host = ("%s.%s.%s-klot-io.local" % (
+            host = ("%s-%s-%s-klot-io.local" % (
                 service["metadata"]["name"],
                 service["metadata"]["namespace"],
                 self.config["kubernetes"]["cluster"]

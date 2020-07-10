@@ -5,6 +5,9 @@ set -e
 echo "setting account password"
 echo 'pi:kloudofthings' | sudo chpasswd
 
+echo "turning off rfkill"
+sudo rfkill unblock 0
+
 echo "setting hostname to klot-io"
 sudo sed -i s/raspberrypi/klot-io/g /etc/hosts
 sudo hostnamectl --transient set-hostname klot-io
@@ -14,11 +17,10 @@ sudo service avahi-daemon restart
 
 echo "installing klot-io requirements"
 sudo apt-get update
-sudo apt-get install -y git python-pip gcc python-dev libsystemd-dev python-avahi
+sudo apt-get install -y git python3-pip gcc python3-dev libsystemd-dev
 sudo mkdir -p /opt/klot-io/
 sudo cp /boot/klot-io/requirements.txt /opt/klot-io/requirements.txt
-sudo pip install requests==2.21
-sudo pip install -r /opt/klot-io/requirements.txt
+sudo pip3 install -r /opt/klot-io/requirements.txt
 sudo mkdir -p /opt/klot-io/lib/
 sudo mkdir -p /opt/klot-io/bin/
 
@@ -29,8 +31,8 @@ sudo cp /boot/klot-io/config/network.yaml /opt/klot-io/config/
 
 echo "install kubernetes files"
 sudo mkdir -p /opt/klot-io/kubernetes/
-sudo cp /boot/klot-io/kubernetes/kube-flannel.yml /opt/klot-io/kubernetes/
 sudo cp /boot/klot-io/kubernetes/klot-io-app-crd.yaml /opt/klot-io/kubernetes/
+sudo cp /boot/klot-io/kubernetes/klot-io-apps.yaml /opt/klot-io/kubernetes/
 
 echo "installing klot-io dns"
 sudo cp /boot/klot-io/lib/name.py /opt/klot-io/lib/

@@ -7,4 +7,8 @@ git+https://github.com/gaf3/opengui.git@master#egg=opengui
 pyasn1==0.4.2
 git+https://github.com/klot-io/pykube.git@master#egg=pykube
 dnslib==0.9.10
+google-auth==1.14.0
+google-auth-oauthlib==0.4.1
+google-auth-httplib2==0.0.3
+google-api-python-client==1.8.0
 coverage==4.5.1

@@ -1,17 +1,5 @@
 window.DRApp = new DoTRoute.Application();
 
-DRApp.YAML = function (value) {
-    if (typeof value === 'object' && value.constructor === Array) {
-        var sections = [];
-        for (var index = 0; index < value.length; index++) {
-            sections.push(jsyaml.dump(value[index]));
-        }
-        return sections.join("---\n");
-    } else {
-        return jsyaml.dump(value);
-    }
-}
-
 DRApp.load = function (name) {
     return $.ajax({url: name + ".html", async: false}).responseText;
 }
@@ -30,7 +18,8 @@ DRApp.STATUSES = {
     "Creating": 4,
     "NotReady": 5,
     "Master": 6,
-    "Workers": 7
+    "Workers": 7,
+    "Apps": 8
 };
 
 DRApp.status =  "Login";
@@ -95,7 +84,13 @@ DRApp.controller("Base",null,{
         } else if (DRApp.status == "Workers") {
             this.application.go("apps");
         } else {
+            this.loading();
+            this.update_status();
+            this.it = {
+                apps: this.rest("GET","/api/app").apps
+            }
             this.application.render(this.it);
+            this.start();
         }
     },
     login: function() {
@@ -192,7 +187,7 @@ DRApp.controller("Base",null,{
     config_switch: function() {
         this.it.message = this.check;
         this.check += ".";
-        window.location.hostname.split('.')[1] 
+        window.location.hostname.split('.')[1]
         var response = $.ajax({url: this.switch + "/api/health", async: false});
         if (response.status == 200) {
             window.location = this.switch;
@@ -257,7 +252,7 @@ DRApp.controller("Base",null,{
         this.application.render(this.it);
         this.start();
     },
-    pod_delete(pod) {
+    pod_delete: function(pod) {
         if (confirm("Are you sure you want to delete " + pod + "?")) {
             this.rest("DELETE","/api/pod/" + pod);
             this.application.refresh();
@@ -267,8 +262,7 @@ DRApp.controller("Base",null,{
         this.loading();
         this.update_status();
         this.it = {
-            apps: this.rest("GET","/api/app").apps,
-            nodes: this.rest("GET","/api/node").nodes
+            apps: this.rest("GET","/api/app").apps
         }
         this.application.render(this.it);
         this.start();
@@ -307,44 +301,97 @@ DRApp.controller("Base",null,{
         this.it.message = this.rest("POST","/api/app", {name: name, source: this.apps_source(), action: action}).message;
         this.application.refresh();
     },
-    app: function() {
-        this.loading();
-        this.update_status();
-        this.it = {
-            app: this.rest("GET","/api/app/"+ DRApp.current.path.app_name).app,
-            nodes: this.rest("GET","/api/node").nodes,
-            labels: this.rest("GET","/api/label?app=" + DRApp.current.path.app_name).labels
-        }
-        this.application.render(this.it);
-        this.start();
-    },
-    app_label(label_name, node_name) {
-            var label = {
-                app: this.it.app.name,
-                name: label_name,
-                node: node_name
+    app_action: function(name, action) {
+        if (action == "Settings") {
+            this.application.go("settings", name);
+        } else if (action == "Delete") {
+            this.rest("DELETE","/api/app/" + name);
+            if (this.application.current.path.app_name) {
+                this.application.go('apps');
+            } else {
+                this.application.refresh();
             }
-        if ($('#' + label_name + '-' + node_name).is(':checked')) {
-            label.value = $('#' + label_name +  '-' + node_name).val();
-            this.rest("POST","/api/label", {label: label});
-        } else {
-            this.rest("DELETE","/api/label", {label: label});
-        }
-        this.application.refresh();
-    },
-    app_action(name, action) {
-        if (action != "Uninstall" || confirm("Are you sure you want to uninstall " + name + "?")) {
+        } else if (action != "Uninstall" || confirm("Are you sure you want to uninstall " + name + "?")) {
             this.rest("PATCH","/api/app/" + name, {action: action});
             this.application.refresh();
         }
     },
-    app_delete(name) {
-        this.rest("DELETE","/api/app/" + name);
-        if (this.application.current.path.app_name) {
-            this.application.go('apps');
-        } else {
-            this.application.refresh();
+    info: function() {
+        this.loading();
+        this.update_status();
+        this.it = {
+            app: this.rest("GET","/api/app/"+ DRApp.current.path.app_name).app
         }
+        this.application.render(this.it);
+        this.start();
+    },
+    settings: function() {
+        var settings = this.rest("OPTIONS","/api/app/"+ DRApp.current.path.app_name, {});
+        this.it = {
+            app: this.rest("GET","/api/app/"+ DRApp.current.path.app_name).app,
+            fields: settings.fields,
+            ready: settings.ready
+        }
+        this.application.render(this.it);
+    },
+    settings_input: function() {
+        var values = {};
+        for (var field_index = 0; field_index < this.it.fields.length; field_index++) {
+            var field = this.it.fields[field_index];
+            if (field.fields) {
+                values[field.name] = {}
+                for (var subfield_index = 0; subfield_index < field.fields.length; subfield_index++) {
+                    var subfield = field.fields[subfield_index];
+                    if (subfield.options) {
+                        if (field.multi) {
+                            values[field.name][subfield.name] = [];
+                            $("input[name='" + field.name + '-' + subfield.name + "']:checked").each(function () {
+                                values[field.name][subfield.name].push($(this).val());
+                            });
+                        } else {
+                            values[field.name][subfield.name] = $("input[name='" + field.name + '-' + subfield.name + "']:checked").val()
+                        }
+                    } else {
+                        values[field.name][subfield.name] = $("#" + field.name + '-' + subfield.name).val()
+                    }
+                }
+            } else if (field.options) {
+                if (field.multi) {
+                    values[field.name] = [];
+                    $("input[name='" + field.name + "']:checked").each(function () {
+                        values[field.name].push($(this).val());
+                    });
+                } else {
+                    values[field.name] = $("input[name='" + field.name + "']:checked").val()
+                }
+            } else {
+                values[field.name] = $("#" + field.name).val()
+            }
+        }
+        return values;
+    },
+    settings_next: function() {
+        var values = this.settings_input();
+        var settings = this.rest("OPTIONS","/api/app/"+ DRApp.current.path.app_name, {values: values});
+        this.it.fields = settings.fields;
+        this.it.ready = settings.ready;
+        this.application.render(this.it);
+    },
+    settings_save: function() {
+        var values = this.settings_input();
+        var settings = this.rest("OPTIONS","/api/app/"+ DRApp.current.path.app_name, {values: values, validate: true});
+        this.it.fields = settings.fields;
+        this.it.ready = settings.ready;
+        this.it.errors = settings.errors;
+        if (!this.it.errors) {
+            this.rest("PUT","/api/app/"+ DRApp.current.path.app_name, {values: values});
+            this.application.go("apps");
+        } else {
+            this.application.render(this.it);
+        }
+    },
+    settings_cancel: function() {
+        this.application.go("apps");
     }
 });
 
@@ -361,7 +408,8 @@ DRApp.template("Pods",DRApp.load("pods"),null,DRApp.partials);
 DRApp.template("Pod",DRApp.load("pod"),null,DRApp.partials);
 DRApp.template("Nodes",DRApp.load("nodes"),null,DRApp.partials);
 DRApp.template("Apps",DRApp.load("apps"),null,DRApp.partials);
-DRApp.template("App",DRApp.load("app"),null,DRApp.partials);
+DRApp.template("Info",DRApp.load("info"),null,DRApp.partials);
+DRApp.template("Settings",DRApp.load("settings"),null,DRApp.partials);
 
 DRApp.route("home","/","Home","Base", "home")
 DRApp.route("login","/login","Login","Base", "login")
@@ -374,4 +422,5 @@ DRApp.route("pods","/pod","Pods","Base","pods", "stop");
 DRApp.route("pod","/pod/{pod}","Pod","Base","pod", "stop");
 DRApp.route("nodes","/node","Nodes","Base","nodes", "stop");
 DRApp.route("apps","/app","Apps","Base","apps", "stop");
-DRApp.route("app","/app/{app_name}","App","Base","app", "stop");
+DRApp.route("info","/app/{app_name}/info","Info","Base","info", "stop");
+DRApp.route("settings","/app/{app_name}/settings","Settings","Base","settings");

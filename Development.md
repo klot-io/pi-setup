@@ -6,21 +6,19 @@ Here's the general redis.klot.io App:
 
 ```yaml
 apiVersion: klot.io/v1
-kind: App
+kind: KlotIOApp
 metadata:
   name: redis.klot.io
-  version: v0.1
-  description: Redis Server - Kloud of Things I/O
 spec:
   namespace: redis-klot-io
+  description: Redis Server - Kloud of Things I/O
   manifests:
   - path: kubernetes/namespace.yaml
   - path: kubernetes/db.yaml
-  labels:
+  settings:
   - name: storage
     description: Where you want Redis to be stored
-    value: enabled
-    master: true
+    node: enabled
 ```
 
 ## Basics
@@ -37,69 +35,18 @@ Manifests are the resources to be created when your App is installed.
 
 Paths in this repo for manifests to apply to Kubernetes in this order.
 
-### spec.labels
+### spec.settings
 
-Labels are optional, used to ensure special services end up on the appropriate nodes.
+Settings are optional, used to ensure special services end up on the appropriate nodes or to set access to things like Google Calendar.
 
 For example, redis.klot.io by default saves to disk.  So if a Redis Pod dies you want it to come back with that data from disk.
 
 Normally Pods can be created on any node, so to ensure consistency redis.klot.io requires that it's only installed on the node labeled as such:
 
-```yaml
-spec:
-  labels:
-  - name: storage
-    description: Where you want Redis to be stored
-    value: enabled
-    master: true
-```
-
 The means a Kubernetes node has to be labeled `redis.klot.io/storage=enabled` for redis.klot.io to be installed on it.
-
-The master setting here means it's ok to install this on the Kubernetes master.
-
-I often do this because I'll back my master with an SSD hard drive, so it's more durable than a regular Pi.
 
 You can see this in the `Deployment` in `kubernetes/db.yaml`
 
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: db
-  namespace: redis-klot-io
-  labels:
-    app: db
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: db
-  template:
-    metadata:
-      labels:
-        app: db
-    spec:
-      tolerations:
-      - effect: NoSchedule
-        key: node-role.kubernetes.io/master
-      nodeSelector:
-        redis.klot.io/storage: enabled
-      volumes:
-      - name: redis
-        hostPath:
-          path: /home/pi/storage/redis.klot.io
-      containers:
-      - name: redis
-        image: klotio/redis:0.1
-        volumeMounts:
-        - name: redis
-          mountPath: /data
-        imagePullPolicy: Always
-        ports:
-        - containerPort: 6379
-          protocol: TCP
-```
 
 First, with `volumes` and `volumeMounts` we're having `/home/pi/storage/redis.klot.io` on the host machine map to `/var/lib/redis` in the Pod. If the Pod goes away and comes back, it's data will still be there.
 
@@ -112,12 +59,31 @@ Third, with `tolerations` we're saying this can tolerate the `NoSchedule` taint 
 Requires allows you to specify what other Apps this one requires. We can see this in the speech.nandy.io App:
 
 ```yaml
+apiVersion: klot.io/v1
+kind: KlotIOApp
+metadata:
+  name: speech.nandy.io
 spec:
+  namespace: speech-nandy-io
+  description: Speech - Nandy I/O
+  manifests:
+  - path: kubernetes/namespace.yaml
+  - path: daemon/kubernetes/daemon.yaml
+  - path: api/kubernetes/api.yaml
+  - path: gui/kubernetes/gui.yaml
+  settings:
+  - name: speakers
+    description: Which nodes have speakers and you want to speak
+    multi: true
+    node: enabled
   requires:
   - name: redis.klot.io
     source:
       site: github.com
       repo: klot-io/redis
+  url:
+    protocol: http
+    host: www-speech-nandy-io
 ```
 
 ### spec.requires
@@ -132,28 +98,17 @@ The name of the App.  Match match what's found at source.
 
 The source of the App.  You can specific this as a URL or as a GitHub repo.
 
-### spec.requires.source.url
-
-The URL at which you can find the App definition file.  If ending in /, will assume `klot-io-app.yaml`.
-
-### spec.requires.source.site
-
-Set to `github.com` to use GitHub (only sire currently supported)
-
 ### spec.requires.source.repo
 
 Set to the repo to use.  Assumes there's a `klot-io-app.yaml` at the top level of the repo.
 
+### spec.requires.source.url (alternative)
+
+The URL at which you can find the App definition file.  If ending in /, will assume `klot-io-app.yaml`.
+
 ## URL
 
 You can specify a URL to serve as a landing page for your App. We can see this in the speech.nandy.io App:
-
-```yaml
-spec:
-  url:
-    protocol: http
-    host: www.speech-nandy-io
-```
 
 ### spec.url
 
@@ -165,7 +120,23 @@ Protocol to use, http/https currently.
 
 ### spec.url.host
 
-Host to use. It'll build the URL as protocol://host.
+Host to use. It'll build the URL as protocol://host-cluster-klot-io.local
+
+## Download
+
+Once you have your own App done, go the Apps page and hav eyour cluster Discover it.
+
+If you have your App in the GitHub repo like the apps here, select the GitHub option.
+
+![github](img/github.png)
+
+Version can be a branch or tag in that repo.  Excellent for running through the whole process.
+
+Alernatively, you can give a URL, of which the manifests must be in sub directories.
+
+![url](img/url.png)
+
+Click Preview to view the App file.  Click Install to get it started (in here).
 
 # kubectl
 
@@ -233,7 +204,7 @@ The Daemon is at [lib/config.py](lib/config.py). It's a basic Python Daemon that
 
 ## DNS
 
-The DNS server is at [lib/name.py](lib/name.py). It's a simple name server that queries Kuberentes and responds to service names accordingly, passing the rest through to 8.8.8.8.
+The DNS server is at [lib/name.py](lib/name.py). It's a simple name server that queries Kuberentes and responds to service names accordingly, passing the rest through to the RPi's nameserver in `/etc/resolv.conf`.
 
 # Console
 
@@ -272,7 +243,7 @@ If you want ot make your own image, go right ahead.
 On Mac:
 
 ```
-# Burn the latest raspbian image (images/2019-09-26-raspbian-buster-lite.zip currently) first then, pop it out and back in, then
+# Burn the latest lite raspbian image (2020-02-13-raspbian-buster-lite.zip currently) first then, pop it out and back in, then
 make build
 make boot
 ```
@@ -305,7 +276,9 @@ Will install and run the config daemon and then tails its logs to make sure it's
 
 The daemon sets hostname to klot-io, change pi password to 'kloudofthings', and reset network to eth0 (if needed)
 
-## enable tmpfs
+## enable tmpfs (optional)
+
+This will extend the SD card's life but I don't do it anymore as I think it causes all sorts of other problems.
 
 ```
 ./tmpfs.sh
@@ -325,7 +298,7 @@ Eject the card, place into the Mac.
 make export
 ```
 
-This will copy the SD image to the images/ directory asmake zip pi-(version>).img with (verison) from the Makefile. Fair warning, this takes forever.
+This will copy the SD image to the images/ directory as pi-(version>).img with (verison) from the Makefile. Fair warning, this takes forever.
 
 ## shrink image to more manageable size
 

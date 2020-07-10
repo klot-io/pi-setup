@@ -1,0 +1,115 @@
+{{#def.Header}}
+<div class="uk-overflow-container">
+    <h2>App - {{= it.app.name}} - Settings</h2>
+    <form class="uk-form uk-form-horizontal">
+{{~it.fields :field}}
+        <div class="uk-form-row">
+            <label class="uk-form-label" for="{{=field.name}}">{{=field.name}}:</label>
+            <div class="uk-form-controls">
+    {{?field.errors}}
+                <div class="uk-alert uk-alert-danger">
+        {{~field.errors :error}}
+                    {{=error}}<br/>
+        {{~}}
+                </div>
+    {{?}}
+    {{?field.fields}}
+        {{?field.description}}
+                {{=field.description.replace(/\n/g, "<br/>")}}<br/>
+        {{?}}
+        {{?field.link}}
+                <a href='{{!field.link.url}}' target='{{!field.link.name}}'>{{=field.link.name}}</a>
+        {{?}}
+            </div>
+        </div>
+        {{~field.fields :subfield}}
+        <div class="uk-form-row">
+            <label class="uk-form-label" for="{{=subfield.name}}">{{=subfield.name}}:</label>
+            <div class="uk-form-controls">
+            {{?subfield.errors}}
+                <div class="uk-alert uk-alert-danger">
+                {{~subfield.errors :error}}
+                    {{=error}}<br/>
+                {{~}}
+                </div>
+            {{?}}
+            {{?subfield.options}}
+                {{~subfield.options :option}}
+                <input
+                    value="{{!option}}"
+                    {{?subfield.multi}}
+                    type="checkbox" name="{{!field.name}}-{{!subfield.name}}"
+                    {{?(subfield.value || subfield.default || []).indexOf(option) > -1}}checked{{?}}
+                    {{??}}
+                    type="radio" name="{{!field.name}}-{{!subfield.name}}"
+                    {{?(subfield.value || subfield.default) == option}}checked{{?}}
+                    {{?}}
+                    /> {{= subfield.labels ? subfield.labels[option] : option}}<br/>
+                {{~}}
+            {{??}}
+                <input
+                    id="{{!field.name}}-{{!subfield.name}}"
+                    placeholder="{{!subfield.label || subfield.name}}"
+                    value="{{!subfield.value || subfield.default || ''}}"
+                    type="text"
+                />
+            {{?}}
+            {{?subfield.description}}
+                <br/>{{=subfield.description.replace(/\n/g, "<br/>")}}
+            {{?}}
+            {{?subfield.link}}
+                <br/><a href='{{!subfield.link.url}}' target='{{!subfield.link.name}}'>{{=subfield.link.name}}</a>
+            {{?}}
+            </div>
+        </div>
+        {{~}}
+    {{??field.options}}
+        {{~field.options :option}}
+                <input
+                    value="{{!option}}"
+            {{?field.multi}}
+                    type="checkbox" name="{{!field.name}}"
+                    {{?(field.value || field.default || []).indexOf(option) > -1}}checked{{?}}
+            {{??}}
+                    type="radio" name="{{!field.name}}"
+                    {{?(field.value || field.default) == option}}checked{{?}}
+            {{?}}
+                /> {{= field.labels ? field.labels[option] : option}}<br/>
+        {{~}}
+    {{??}}
+                <input
+                    id="{{!field.name}}"
+                    placeholder="{{!field.label || field.name}}"
+                    value="{{!field.value || field.default || ''}}"
+                    type="text"
+                />
+    {{?}}
+    {{?!field.fields}}
+        {{?field.description}}
+                <br/>{{=field.description.replace(/\n/g, "<br/>")}}
+        {{?}}
+        {{?field.link}}
+                <br/><a href='{{!field.link.url}}' target='{{!field.link.name}}'>{{=field.link.name}}</a>
+        {{?}}
+            </div>
+        </div>
+    {{?}}
+{{~}}
+        <div class="uk-form-row">
+            <hr/>
+{{?it.ready}}
+            <button type="button" onClick="DRApp.current.controller.settings_save();" class="uk-button uk-button-primary">
+                Save
+            </button>
+{{??}}
+            <button type="button" onClick="DRApp.current.controller.settings_next();" class="uk-button uk-button-primary">
+                Next
+            </button>
+{{?}}
+            <button type="button" onClick="DRApp.current.controller.settings_cancel();" class="uk-button uk-button-primary">
+                Cancel
+            </button>
+        </div>
+    </form>
+</div>
+{{#def.Footer}}

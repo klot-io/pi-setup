@@ -1,0 +1,52 @@
+{{#def.Header}}
+<div class="uk-overflow-container">
+    <h2>App - {{=it.app.name}} - Info</h2>
+    {{?it.message}}
+    <div class="uk-alert uk-alert-success">
+        {{=it.message}}
+    </div>
+    {{?}}
+    <form class="uk-form uk-form-horizontal">
+        <div class="uk-form-row">
+            <label class="uk-form-label" for="name">name</label>
+            {{=it.app.name}}
+        </div>
+        <div class="uk-form-row">
+            <label class="uk-form-label" for="version">version</label>
+            {{=it.app.version}}
+        </div>
+        <div class="uk-form-row">
+            <label class="uk-form-label" for="description">description</label>
+            {{=it.app.description}}
+        </div>
+        {{?it.app.url}}
+            <div class="uk-form-row">
+                <label class="uk-form-label" for="url">url</label>
+                <a href="{{!it.app.url}}" target="{{!it.app.name}}">{{=it.app.url}}</a>
+            </div>
+        {{?}}
+        {{?it.app.action}}
+            <div class="uk-form-row">
+                <label class="uk-form-label" for="action">action</label>
+                {{=it.app.action}}
+            </div>
+        {{?}}
+        <div class="uk-form-row">
+            <label class="uk-form-label" for="status">status</label>
+            {{=it.app.status}}
+        </div>
+        {{?it.app.error}}
+            <div class="uk-form-row">
+                <label class="uk-form-label" for="error">error</label>
+                <pre>
+                    {{=it.app.error.join("\n")}}
+                </pre>
+            </div>
+        {{?}}
+        <div class="uk-form-row">
+            <label class="uk-form-label" for="resources">yaml</label>
+            <pre>{{=it.app.yaml}}</pre>
+        </div>
+    </form>
+</div>
+{{#def.Footer}}
