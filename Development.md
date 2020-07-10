@@ -130,6 +130,8 @@ If you have your App in the GitHub repo like the apps here, select the GitHub op
 
 ![github](img/github.png)
 
+Version can be a branch or tag in that repo.  Excellent for running through the whole process.
+
 Alernatively, you can give a URL, of which the manifests must be in sub directories.
 
 ![url](img/url.png)
