@@ -504,7 +504,7 @@ class Daemon(object):
 
         obj["action"] = action
 
-        return pykube.KlotIOApp(self.kube, obj).replace()
+        pykube.KlotIOApp(self.kube, obj).replace()
 
     def download(self, obj):
 
@@ -692,7 +692,7 @@ class Daemon(object):
             obj.setdefault("status", "Discovered")
             obj.setdefault("action", "Preview")
 
-            if obj["action"] == "Retry":
+            if obj["action"] == "Retry" or obj["status"] == "NeedSettings":
                 continue
 
             try:
