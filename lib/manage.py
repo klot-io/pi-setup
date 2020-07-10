@@ -648,7 +648,7 @@ class App(flask_restful.Resource):
         if "settings" in obj:
             app["settings"] = obj["settings"]
 
-        if "settings" in obj.get("spec", {}):
+        if "settings" in obj.get("spec", {}) and app["status"] in ["NeedSettings", "Installed"]:
             app["actions"].append("Settings")
 
         if app["action"] == "Retry" and "resources" not in obj:
