@@ -186,7 +186,7 @@ This is how to boot off of an SSD hard drive for installation. I put this here b
 
 - A hard drive like [this](https://www.amazon.com/gp/product/B073H552FK/ref=ppx_yo_dt_b_search_asin_title?ie=UTF8&psc=1).
 
-### ### Burn klot.io to SSD
+### Burn klot.io to SSD
 
 1. On your local workstation, download [pi-0.3.img.zip](https://klot-io.sfo2.cdn.digitaloceanspaces.com/pi-0.3.img.zip).
 2. Burn this image to each of your SSD.
@@ -199,4 +199,5 @@ This is how to boot off of an SSD hard drive for installation. I put this here b
 9. `n` new primary (default), `2` (default) paste the start, and all the way to the end (default), `n` to not remove signature.
 10. `w` to write.
 11. `sudo shutdown -r now` to reboot.
-12. `sudo resize2fs /dev/sda2` to resize.
+12. `sudo resize2fs /dev/sda2` to resize. (takes a bit btw)
+13. Now have it join the cluster through the Master's GUI
