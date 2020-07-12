@@ -365,6 +365,34 @@ class Node(flask_restful.Resource):
     def uninitialized():
         return os.path.exists("/opt/klot-io/config/uninitialized")
 
+    def options(self):
+
+        options = []
+        master = None
+        app = flask.request.args.get("app")
+        label = flask.request.args.get("label")
+        value = flask.request.args.get("value")
+        workers = []
+
+        if kube():
+
+            for obj in [node.obj for node in pykube.Node.objects(kube()).filter()]:
+
+                if app and label and value and obj["metadata"].get("labels", {}).get(f"{app}/{label}") != value:
+                    continue
+
+                if obj["metadata"]["name"] == platform.node():
+                    master = obj["metadata"]["name"]
+                else:
+                    workers.append(obj["metadata"]["name"])
+
+            if master is not None:
+                options.append(master)
+
+        options.extend(sorted(workers))
+
+        return {"options": options}
+
     @require_auth
     def get(self):
 
