@@ -965,8 +965,12 @@ class AppRIU(App):
 
             label = f"{obj['metadata']['name']}/{field.name}"
 
-            current = field.value if field.multi else [field.value]
-            original = field.original if field.multi else [field.original]
+            if field.multi:
+                current = field.value or []
+                original = field.original or []
+            else:
+                current = [field.value] if field.value else []
+                current = [field.original] if field.original else []
 
             for value in current:
                 if value not in original:
@@ -989,15 +993,10 @@ class AppRIU(App):
 
         pykube.KlotIOApp(kube(), obj).replace()
 
-        try:
-
-            config = pykube.ConfigMap.objects(kube()).filter(namespace=obj["spec"]["namespace"]).get(name="config").obj
-            config["data"] = {"settings.yaml": yaml.safe_dump(flask.request.json["values"])}
-            pykube.ConfigMap(kube(), config).replace()
-
-        except pykube.ObjectDoesNotExist:
-
-            pass
+        config = pykube.ConfigMap.objects(kube()).filter(namespace=obj["spec"]["namespace"]).get(name="config").obj
+        config.setdefault("data", {})
+        config["data"]["settings.yaml"] = yaml.safe_dump(flask.request.json["values"])
+        pykube.ConfigMap(kube(), config).replace()
 
         return {"values": flask.request.json["values"]}
 

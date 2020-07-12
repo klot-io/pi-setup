@@ -200,11 +200,16 @@ With `daemon/forms/person.fields.yaml` being:
 ```yaml
 name: slack
 fields:
-- name: username
-  description: What to @ someone as slack as.
+- name: id
+  description: ID  to @ someone as slack as.
+  url: https://api.slack.com/reference/surfaces/formatting#mentioning-users
 ```
 
 This will createa on the person form in nandy a slack field with a subfield of username, allowing a person to specify how to be referenced in Slack.
+
+The values with be still stored in the data databse field of the person table, but to the User it'll as a separate field.
+
+This is done at the API label, so progrmattic interaction will work the same way.
 
 Though not stricly enforced anywhere, I'm starting with this `<form>.fields.yaml` pattern as a loose standard for Fields integration.
 
