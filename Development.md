@@ -158,7 +158,7 @@ The relative path (as with resources) to the text file.
 
 The name to use when build the filename (default to base of path, ie scrape.yaml above).
 
-The full file name will be `integration-<app>-<name>` (ie integration-chore-prometheus.nandy.io-scrape.yaml above) and be place in the `config` ConfigMap of the `prometheus.klot.io` namespace.
+The full file name will be `integration_<app>_<name>` (ie integration-chore-prometheus.nandy.io-scrape.yaml above) and be place in the `config` ConfigMap of the `prometheus.klot.io` namespace.
 
 ## Fields
 
@@ -198,14 +198,15 @@ spec:
 With `daemon/forms/person.fields.yaml` being:
 
 ```yaml
-name: slack
+description: How Slack can reference someone
 fields:
-- name: id
-  description: ID  to @ someone as slack as.
-  url: https://api.slack.com/reference/surfaces/formatting#mentioning-users
+- name: slack_id
+  description: ID to @ someone as slack as.
+  link: https://api.slack.com/reference/surfaces/formatting#mentioning-users
+  optional: true
 ```
 
-This will createa on the person form in nandy a slack field with a subfield of username, allowing a person to specify how to be referenced in Slack.
+This will createa on the person form in nandy a `chore-slack.nandy.io` field with a subfield of `slack_id`, allowing a person to specify how to be referenced in Slack.
 
 The values with be still stored in the data databse field of the person table, but to the User it'll as a separate field.
 

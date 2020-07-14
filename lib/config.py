@@ -654,7 +654,7 @@ class Daemon(object):
         config.setdefault("data", {})
 
         for name, content in integration["files"].items():
-            config["data"][f"integration-{obj['metadata']['name']}-{name}"] = content
+            config["data"][f"integration_{obj['metadata']['name']}_{name}"] = content
 
         pykube.ConfigMap(self.kube, config).replace()
 
