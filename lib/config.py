@@ -415,7 +415,7 @@ class Daemon(object):
             self.execute("sudo -u pi -- kubectl apply -f /opt/klot-io/kubernetes/klot-io-app-crd.yaml")
             self.execute("sudo -u pi -- kubectl apply -f /opt/klot-io/kubernetes/klot-io-apps.yaml")
 
-    def manifest(self, source):
+    def content(self, source):
 
         if "url" in source:
 
@@ -476,7 +476,7 @@ class Daemon(object):
 
         print(f"defining {obj['metadata']['name']} from {obj['source']}")
 
-        definition = yaml.safe_load(self.manifest(obj['source']))
+        definition = yaml.safe_load(self.content(obj['source']))
 
         if not isinstance(definition, dict):
             raise Exception(f"source {obj['source']} produced non dict {definition}")
@@ -517,13 +517,34 @@ class Daemon(object):
             source = copy.deepcopy(obj["source"])
             source.update(manifest)
 
-            obj["resources"].extend(list(yaml.safe_load_all(self.manifest(source))))
+            obj["resources"].extend(list(yaml.safe_load_all(self.content(source))))
 
         obj["resources"].sort(key= lambda resource: RESOURCES.index(resource["kind"]) if resource["kind"] in RESOURCES else len(RESOURCES))
         obj["status"] = "Downloaded"
 
         for app in obj["spec"].get("requires", []):
+
             self.act(app['name'], 'Preview')
+
+            if "integrations" in app:
+
+                obj.setdefault("integrations", [])
+
+                for integration in app["integrations"]:
+
+                    files = {}
+
+                    name = integration.get("name", os.path.basename(integration["path"]))
+
+                    source = copy.deepcopy(obj["source"])
+                    source.update(integration)
+
+                    files[name] = self.content(source)
+
+                obj["integrations"].append({
+                    "app": app["name"],
+                    "files": files
+                })
 
     def display(self, obj):
 
@@ -536,9 +557,27 @@ class Daemon(object):
 
         return "/".join(display)
 
-    def settings(self, obj):
+    def namespace(self, obj):
 
-        print(f"creating settings for {obj['metadata']['name']}")
+        print(f"creating namespace {obj['spec']['namespace']}")
+
+        obj = {
+            "apiVersion": "v1",
+            "kind": "Namespace",
+            "metadata": {
+                "name": obj['spec']['namespace'],
+            }
+        }
+
+        try:
+            pykube.Namespace(self.kube, obj).replace()
+        except pykube.PyKubeError:
+            pykube.Namespace(self.kube, obj).delete()
+            pykube.Namespace(self.kube, obj).create()
+
+    def configmap(self, obj):
+
+        print(f"creating configmap for {obj['metadata']['name']}")
 
         obj = {
             "apiVersion": "v1",
@@ -547,7 +586,7 @@ class Daemon(object):
                 "namespace": obj["spec"]["namespace"],
                 "name": "config",
             },
-            "data": {"settings.yaml": yaml.safe_dump(obj["settings"])}
+            "data": {}
         }
 
         try:
@@ -557,6 +596,9 @@ class Daemon(object):
             pykube.ConfigMap(self.kube, obj).create()
 
     def create(self, obj):
+
+        self.namespace(obj)
+        self.configmap(obj)
 
         for app in obj["spec"].get("requires", []):
             self.act(app['name'], 'Install')
@@ -576,6 +618,10 @@ class Daemon(object):
         print(f"creating {obj['metadata']['name']}")
 
         for resource in obj["resources"]:
+
+            if resource["kind"] == "Namespace":
+                continue
+
             print(f"applying {self.display(resource)}")
             Resource = getattr(pykube, resource["kind"])
             try:
@@ -583,9 +629,6 @@ class Daemon(object):
             except pykube.PyKubeError:
                 Resource(self.kube, resource).delete()
                 Resource(self.kube, resource).create()
-
-        if "settings" in obj:
-            self.settings(obj)
 
         obj["created"] = True
         obj["status"] = "Installing"
@@ -601,6 +644,19 @@ class Daemon(object):
             url = f"{url}/{obj['spec']['url']['path']}"
 
         return url
+
+    def integration(self, obj, integration):
+
+        print(f"adding integration from {obj['metadata']['name']} to {integration['app']}")
+
+        app = pykube.KlotIOApp.objects(self.kube).get(name=integration["app"]).obj
+        config = pykube.ConfigMap.objects(self.kube).filter(namespace=app["spec"]["namespace"]).get(name="config").obj
+        config.setdefault("data", {})
+
+        for name, content in integration["files"].items():
+            config["data"][f"integration_{obj['metadata']['name']}_{name}"] = content
+
+        pykube.ConfigMap(self.kube, config).replace()
 
     def check(self, obj):
 
@@ -659,6 +715,10 @@ class Daemon(object):
 
             obj['url'] = url
 
+        for integration in obj.get("integrations", []):
+
+            self.integration(obj, integration)
+
         print(f"{obj['metadata']['name']} installed")
 
         obj["status"] = "Installed"
@@ -670,11 +730,25 @@ class Daemon(object):
         print(f"destroying {self.display(obj)}")
 
         for resource in reversed(obj["resources"]):
+
+            if resource["kind"] == "Namespace":
+                continue
+
             print(f"deleting {self.display(resource)}")
             try:
                 getattr(pykube, resource["kind"])(self.kube, resource).delete()
             except pykube.PyKubeError as exception:
                 print(f"failed to delete {self.display(resource)}: {exception}")
+
+        try:
+            pykube.ConfigMap.objects(self.kube).filter(namespace=obj["spec"]["namespace"]).get(name="config").delete()
+        except pykube.PyKubeError as exception:
+            print(f"failed to delete ConfigMap/{obj['spec']['namespace']}/config: {exception}")
+
+        try:
+            pykube.Namespace.objects(self.kube).get(name=obj["spec"]["namespace"]).delete()
+        except pykube.PyKubeError as exception:
+            print(f"failed to delete Namespace/{obj['spec']['namespace']}: {exception}")
 
         if "created" in obj:
             del obj["created"]

@@ -365,6 +365,34 @@ class Node(flask_restful.Resource):
     def uninitialized():
         return os.path.exists("/opt/klot-io/config/uninitialized")
 
+    def options(self):
+
+        options = []
+        master = None
+        app = flask.request.args.get("app")
+        label = flask.request.args.get("label")
+        value = flask.request.args.get("value")
+        workers = []
+
+        if kube():
+
+            for obj in [node.obj for node in pykube.Node.objects(kube()).filter()]:
+
+                if app and label and value and obj["metadata"].get("labels", {}).get(f"{app}/{label}") != value:
+                    continue
+
+                if obj["metadata"]["name"] == platform.node():
+                    master = obj["metadata"]["name"]
+                else:
+                    workers.append(obj["metadata"]["name"])
+
+            if master is not None:
+                options.append(master)
+
+        options.extend(sorted(workers))
+
+        return {"options": options}
+
     @require_auth
     def get(self):
 
@@ -937,8 +965,12 @@ class AppRIU(App):
 
             label = f"{obj['metadata']['name']}/{field.name}"
 
-            current = field.value if field.multi else [field.value]
-            original = field.original if field.multi else [field.original]
+            if field.multi:
+                current = field.value or []
+                original = field.original or []
+            else:
+                current = [field.value] if field.value else []
+                current = [field.original] if field.original else []
 
             for value in current:
                 if value not in original:
@@ -961,15 +993,10 @@ class AppRIU(App):
 
         pykube.KlotIOApp(kube(), obj).replace()
 
-        try:
-
-            config = pykube.ConfigMap.objects(kube()).filter(namespace=obj["spec"]["namespace"]).get(name="config").obj
-            config["data"] = {"settings.yaml": yaml.safe_dump(flask.request.json["values"])}
-            pykube.ConfigMap(kube(), config).replace()
-
-        except pykube.ObjectDoesNotExist:
-
-            pass
+        config = pykube.ConfigMap.objects(kube()).filter(namespace=obj["spec"]["namespace"]).get(name="config").obj
+        config.setdefault("data", {})
+        config["data"]["settings.yaml"] = yaml.safe_dump(flask.request.json["values"])
+        pykube.ConfigMap(kube(), config).replace()
 
         return {"values": flask.request.json["values"]}
 

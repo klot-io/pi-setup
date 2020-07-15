@@ -122,6 +122,98 @@ Protocol to use, http/https currently.
 
 Host to use. It'll build the URL as protocol://host-cluster-klot-io.local
 
+## Integrations
+
+Integrations allow one App to inject configuration file (text) into another App's ConfigMap.
+
+```yaml
+apiVersion: klot.io/v1
+kind: KlotIOApp
+metadata:
+  name: chore-prometheus.nandy.io
+spec:
+  namespace: chore-prometheus-nandy-io
+  description: Chore Prometheus - Nandy I/O
+  manifests:
+  - path: kubernetes/namespace.yaml
+  - path: daemon/kubernetes/daemon.yaml
+  requires:
+  - name: prometheus.klot.io
+    source:
+      site: github.com
+      repo: klot-io/prometheus
+    integrations:
+    - path: daemon/prometheus/scrape.yaml
+  - name: chore.nady.io
+    source:
+      site: github.com
+      repo: nandy-io/chore
+```
+
+### spec.requires.integrations.path
+
+The relative path (as with resources) to the text file.
+
+### spec.requires.integrations.name
+
+The name to use when build the filename (default to base of path, ie scrape.yaml above).
+
+The full file name will be `integration_<app>_<name>` (ie integration_chore-prometheus.nandy.io_scrape.yaml above) and be place in the `config` ConfigMap of the `prometheus.klot.io` namespace.
+
+## Fields
+
+Integrations allow Apps to inject fields onto other Apps forms:
+
+```yaml
+apiVersion: klot.io/v1
+kind: KlotIOApp
+metadata:
+  name: chore-slack.nandy.io
+spec:
+  namespace: chore-slack-nandy-io
+  description: Chore Slack - Nandy I/O
+  manifests:
+  - path: kubernetes/namespace.yaml
+  - path: daemon/kubernetes/daemon.yaml
+  settings:
+  - name: webhook_url
+    description: |
+      Go to the Link below.
+      Create an App with the Create App button.
+      Go to Incoming Webhooks.
+      Add a new Webhook, selecting channel to post to.
+      Copy the Webhook URL and paste it above.
+    link:
+      name: Slack Apps
+      url: https://api.slack.com/apps
+  requires:
+  - name: chore.nandy.io
+    source:
+      site: github.com
+      repo: nandy-io/chore
+    integrations:
+    - path: daemon/forms/person.fields.yaml
+```
+
+With `daemon/forms/person.fields.yaml` being:
+
+```yaml
+description: How Slack can reference someone
+fields:
+- name: slack_id
+  description: ID to @ someone as slack as.
+  link: https://api.slack.com/reference/surfaces/formatting#mentioning-users
+  optional: true
+```
+
+This will createa on the person form in nandy a `chore-slack.nandy.io` field with a subfield of `slack_id`, allowing a person to specify how to be referenced in Slack.
+
+The values with be still stored in the data databse field of the person table, but to the User it'll as a separate field.
+
+This is done at the API label, so progrmattic interaction will work the same way.
+
+Though not stricly enforced anywhere, I'm starting with this `<form>.fields.yaml` pattern as a loose standard for Fields integration.
+
 ## Download
 
 Once you have your own App done, go the Apps page and hav eyour cluster Discover it.
@@ -132,11 +224,24 @@ If you have your App in the GitHub repo like the apps here, select the GitHub op
 
 Version can be a branch or tag in that repo.  Excellent for running through the whole process.
 
-Alernatively, you can give a URL, of which the manifests must be in sub directories.
+Alternatively, you can give a URL, of which the manifests must be in sub directories.
 
 ![url](img/url.png)
 
 Click Preview to view the App file.  Click Install to get it started (in here).
+
+## Docker
+
+Some images need to be built directly on a Pi.  I don't know why this is, but I haven't had time to figure it out.
+
+To do so, a Pi needs docker installed. SSH to a pi and run the following commands:
+
+```
+cd /boot/klot-io/bin
+./klot
+```
+
+After that (and logging out and back in), you'll be able to build images.
 
 # kubectl
 
