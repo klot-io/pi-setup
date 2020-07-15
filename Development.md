@@ -158,7 +158,7 @@ The relative path (as with resources) to the text file.
 
 The name to use when build the filename (default to base of path, ie scrape.yaml above).
 
-The full file name will be `integration_<app>_<name>` (ie integration-chore-prometheus.nandy.io-scrape.yaml above) and be place in the `config` ConfigMap of the `prometheus.klot.io` namespace.
+The full file name will be `integration_<app>_<name>` (ie integration_chore-prometheus.nandy.io_scrape.yaml above) and be place in the `config` ConfigMap of the `prometheus.klot.io` namespace.
 
 ## Fields
 
@@ -224,11 +224,24 @@ If you have your App in the GitHub repo like the apps here, select the GitHub op
 
 Version can be a branch or tag in that repo.  Excellent for running through the whole process.
 
-Alernatively, you can give a URL, of which the manifests must be in sub directories.
+Alternatively, you can give a URL, of which the manifests must be in sub directories.
 
 ![url](img/url.png)
 
 Click Preview to view the App file.  Click Install to get it started (in here).
+
+## Docker
+
+Some images need to be built directly on a Pi.  I don't know why this is, but I haven't had time to figure it out.
+
+To do so, a Pi needs docker installed. SSH to a pi and run the following commands:
+
+```
+cd /boot/klot-io/bin
+./klot
+```
+
+After that (and logging out and back in), you'll be able to build images.
 
 # kubectl
 

@@ -40,7 +40,7 @@ local.copy("bin/klot-io.sh")
 local.copy("bin/api.py")
 local.copy("bin/daemon.py")
 local.copy("bin/dns.py")
-
+local.copy("bin/docker.sh")
 
 local.directory("service")
 local.copy("service/klot-io-api.service")
