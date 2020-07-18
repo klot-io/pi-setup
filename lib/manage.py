@@ -1040,7 +1040,7 @@ class AppV(App):
             options.append(release["tag_name"])
             labels[release["tag_name"]] = " - ".join(label)
 
-        return sorted(options, reversed=True), labels
+        return sorted(options, reverse=True), labels
 
     @staticmethod
     def branches(source):
@@ -1051,7 +1051,7 @@ class AppV(App):
             if branch["name"] != "master":
                 options.append(branch["name"])
 
-        return sorted(options, reversed=True)
+        return sorted(options, reverse=True)
 
     @classmethod
     def fields(cls, obj, values):
