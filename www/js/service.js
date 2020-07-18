@@ -304,6 +304,8 @@ DRApp.controller("Base",null,{
     app_action: function(name, action) {
         if (action == "Settings") {
             this.application.go("settings", name);
+        } else if (action == "Upgrade") {
+            this.application.go("upgrade", name);
         } else if (action == "Delete") {
             this.rest("DELETE","/api/app/" + name);
             if (this.application.current.path.app_name) {
@@ -392,6 +394,49 @@ DRApp.controller("Base",null,{
     },
     settings_cancel: function() {
         this.application.go("apps");
+    },
+    upgrade: function() {
+        var upgrade = this.rest("OPTIONS","/api/app/"+ DRApp.current.path.app_name + '/upgrade', {});
+        this.it = {
+            app: this.rest("GET","/api/app/"+ DRApp.current.path.app_name).app,
+            fields: upgrade.fields,
+            ready: upgrade.ready
+        }
+        this.application.render(this.it);
+    },
+    upgrade_input: function() {
+        var values = {};
+        for (var field_index = 0; field_index < this.it.fields.length; field_index++) {
+            var field = this.it.fields[field_index];
+            if (field.options) {
+                values[field.name] = $("input[name='" + field.name + "']:checked").val();
+            }
+        }
+        return values;
+    },
+    upgrade_change: function() {
+        var values = this.upgrade_input();
+        var upgrade = this.rest("OPTIONS","/api/app/"+ DRApp.current.path.app_name + '/upgrade', {values: values});
+        this.it.fields = upgrade.fields;
+        this.it.ready = upgrade.ready;
+        this.it.errors = upgrade.errors;
+        this.application.render(this.it);
+    },
+    upgrade_save: function(action) {
+        var values = this.upgrade_input();
+        var upgrade = this.rest("OPTIONS","/api/app/"+ DRApp.current.path.app_name + '/upgrade', {values: values, validate: true});
+        this.it.fields = upgrade.fields;
+        this.it.ready = upgrade.ready;
+        this.it.errors = upgrade.errors;
+        if (!this.it.errors) {
+            this.rest("PUT","/api/app/"+ DRApp.current.path.app_name + '/upgrade', {values: values, action: action});
+            this.application.go("apps");
+        } else {
+            this.application.render(this.it);
+        }
+    },
+    upgrade_cancel: function() {
+        this.application.go("apps");
     }
 });
 
@@ -410,6 +455,7 @@ DRApp.template("Nodes",DRApp.load("nodes"),null,DRApp.partials);
 DRApp.template("Apps",DRApp.load("apps"),null,DRApp.partials);
 DRApp.template("Info",DRApp.load("info"),null,DRApp.partials);
 DRApp.template("Settings",DRApp.load("settings"),null,DRApp.partials);
+DRApp.template("Upgrade",DRApp.load("upgrade"),null,DRApp.partials);
 
 DRApp.route("home","/","Home","Base", "home")
 DRApp.route("login","/login","Login","Base", "login")
@@ -424,3 +470,4 @@ DRApp.route("nodes","/node","Nodes","Base","nodes", "stop");
 DRApp.route("apps","/app","Apps","Base","apps", "stop");
 DRApp.route("info","/app/{app_name}/info","Info","Base","info", "stop");
 DRApp.route("settings","/app/{app_name}/settings","Settings","Base","settings");
+DRApp.route("upgrade","/app/{app_name}/upgrade","Upgrade","Base","upgrade");

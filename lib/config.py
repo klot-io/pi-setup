@@ -725,6 +725,25 @@ class Daemon(object):
 
         return True
 
+    def upgrade(self, obj):
+
+        print(f"upgrading {self.display(obj)}")
+
+        if obj["status"] in ["Installing", "Installed"]:
+            self.destroy(obj)
+
+        if "version" in obj["upgrade"]:
+            obj["source"]["version"] = obj["upgrade"]["version"]
+        elif "version" in obj["source"]:
+            del obj["source"]["version"]
+
+        obj["action"] = obj["upgrade"]["action"]
+        obj["status"] = "Upgrading"
+
+        del obj["upgrade"]
+        del obj["resources"]
+        del obj["spec"]
+
     def destroy(self, obj):
 
         print(f"destroying {self.display(obj)}")
@@ -785,6 +804,8 @@ class Daemon(object):
                 elif obj['action'] == "Install" and obj.get("status") in ["Installing"]:
                     if not self.check(obj):
                         continue
+                elif obj['action'] == "Upgrade":
+                    self.upgrade(obj)
                 elif obj['action'] == "Uninstall":
                     self.destroy(obj)
                 else:

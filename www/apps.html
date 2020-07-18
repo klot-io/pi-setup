@@ -50,7 +50,7 @@
             {{~it.apps :app}}
             <tr>
                 <td>{{=app.name}}</td>
-                <td>{{=app.version}}</td>
+                <td>{{=app.version || 'master'}}</td>
                 <td>{{=app.description}}</td>
                 <td>{{=app.action}}</td>
                 <td>{{=app.status}}</td>
