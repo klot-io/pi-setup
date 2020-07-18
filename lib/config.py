@@ -530,9 +530,9 @@ class Daemon(object):
 
                 obj.setdefault("integrations", [])
 
-                for integration in app["integrations"]:
+                files = {}
 
-                    files = {}
+                for integration in app["integrations"]:
 
                     name = integration.get("name", os.path.basename(integration["path"]))
 
@@ -750,11 +750,16 @@ class Daemon(object):
         except pykube.PyKubeError as exception:
             print(f"failed to delete Namespace/{obj['spec']['namespace']}: {exception}")
 
-        if "created" in obj:
-            del obj["created"]
+        for node in [node.obj for node in pykube.Node.objects(self.kube).filter()]:
+            for label in list(node["metadata"]["labels"].keys()):
+                if label.startswith(f"{obj['metadata']['name']}/"):
+                    del node["metadata"]["labels"][label]
 
-        if "url" in obj:
-            del obj["url"]
+            pykube.Node(self.kube, node).replace()
+
+        for field in ["settings", "created", "url", "integrations"]:
+            if field in obj:
+                del obj[field]
 
         obj["action"] = "Preview"
         obj["status"] = "Downloaded"

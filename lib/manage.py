@@ -970,7 +970,7 @@ class AppRIU(App):
                 original = field.original or []
             else:
                 current = [field.value] if field.value else []
-                current = [field.original] if field.original else []
+                original = [field.original] if field.original else []
 
             for value in current:
                 if value not in original:
