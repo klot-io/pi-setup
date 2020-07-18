@@ -36,6 +36,7 @@ def app():
     api.add_resource(PodRD, '/pod/<string:pod>')
     api.add_resource(AppLP, '/app')
     api.add_resource(AppRIU, '/app/<string:name>')
+    api.add_resource(AppV, '/app/<string:name>/upgrade')
 
     return app
 
@@ -676,19 +677,21 @@ class App(flask_restful.Resource):
         if "settings" in obj:
             app["settings"] = obj["settings"]
 
-        if "settings" in obj.get("spec", {}) and app["status"] in ["NeedSettings", "Installed"]:
+        if "settings" in obj.get("spec", {}) and app["status"] in ["NeedSettings", "Installed"] and app["action"] != "Uninstall":
             app["actions"].append("Settings")
 
         if app["action"] == "Retry" and "resources" not in obj:
             app["actions"].append("Preview")
 
         if "created" not in obj:
-            if app["action"] != "Delete":
-                app["actions"].append("Delete")
-            if app["action"] != "Install":
-                app["actions"].append("Install")
+            actions = ["Delete", "Install", "Upgrade"]
         elif app["action"] != "Uninstall":
-            app["actions"].append("Uninstall")
+            actions = ["Upgrade", "Uninstall"]
+        else:
+            actions = []
+
+        if app["action"] not in actions:
+            app["actions"].extend(actions)
 
         if not short:
 
@@ -1012,3 +1015,136 @@ class AppRIU(App):
         pykube.KlotIOApp(kube(), obj).delete()
 
         return {"message": f"{name} deleted"}, 201
+
+class AppV(App):
+
+    @staticmethod
+    def tags(source, stable=True):
+
+        options = []
+        labels = {}
+
+        for release in requests.get(f"https://api.github.com/repos/{source['repo']}/releases").json():
+
+            if release["prerelease"] == stable:
+                continue
+
+            label = [release["tag_name"]]
+
+            if release.get("name"):
+                label.append(release["name"])
+
+            if release.get("body"):
+                label.append(release["body"])
+
+            options.append(release["tag_name"])
+            labels[release["tag_name"]] = " - ".join(label)
+
+        return sorted(options, reversed=True), labels
+
+    @staticmethod
+    def branches(source):
+
+        options = []
+
+        for branch in requests.get(f"https://api.github.com/repos/{source['repo']}/branches").json():
+            if branch["name"] != "master":
+                options.append(branch["name"])
+
+        return sorted(options, reversed=True)
+
+    @classmethod
+    def fields(cls, obj, values):
+
+        fields = opengui.Fields(values, {}, [
+            {
+                "name": "release",
+                "options": [
+                    "current"
+                ],
+                "labels": {
+                    "current": "The most recent confirmed version (recommended)"
+                },
+                "trigger": True
+            }
+        ], ready=False)
+
+
+        if obj["source"].get("site") == "github.com":
+            fields["release"].options.extend([
+                "stable",
+                "experimental",
+                "development"
+            ])
+            fields["release"].content["labels"].update({
+                "stable": "Past confirmed versions",
+                "experimental": "Unconfirmed versions (not recommended)",
+                "development": "Versions currently in development (here be dragons)"
+            })
+
+        if fields["release"].value == "current":
+
+            fields.ready = True
+
+        elif fields["release"].value:
+
+            fields.append({
+                "name": "version"
+            })
+
+            if fields["release"].value in ["stable", "experimental"]:
+
+                (
+                    fields["version"].options,
+                    fields["version"].content["labels"]
+                ) = cls.tags(obj["source"], stable=(fields["release"].value == "stable"))
+
+            elif fields["release"].value == "development":
+
+                fields["version"].options = cls.branches(obj["source"])
+
+            fields.ready = True
+
+        return fields
+
+    @require_auth
+    @require_kube
+    def options(self, name):
+
+        obj = pykube.KlotIOApp.objects(kube()).filter().get(name=name).obj
+
+        values = flask.request.json.get("values", {})
+
+        fields = self.fields(obj, values)
+
+        if values and flask.request.json.get("validate") and not fields.validate():
+            return {"fields": fields.to_list(), "ready": fields.ready, "errors": fields.errors}
+        else:
+            return {"fields": fields.to_list(), "ready": fields.ready}
+
+    @require_auth
+    @require_kube
+    def put(self, name):
+
+        if "values" not in flask.request.json:
+            return {"error": "missing config"}, 400
+
+        obj = pykube.KlotIOApp.objects(kube()).filter().get(name=name).obj
+
+        fields = self.fields(obj, flask.request.json["values"])
+
+        if not fields.validate():
+            return {"fields": fields.to_list(), "errors": fields.errors}, 400
+
+        obj["upgrade"] = {
+            "action": flask.request.json["action"]
+        }
+
+        if fields["release"].value != "current":
+            obj["upgrade"]["version"] = fields["version"].value
+
+        obj["action"] = "Upgrade"
+
+        pykube.KlotIOApp(kube(), obj).replace()
+
+        return {self.singular: self.to_dict(obj)}
