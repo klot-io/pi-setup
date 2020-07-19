@@ -497,6 +497,9 @@ class Daemon(object):
 
         obj = pykube.KlotIOApp.objects(self.kube).get(name=name).obj
 
+        if obj.get("action") == "Upgrade":
+            return
+
         if obj.get("action", "Preview") == "Install" and action == "Preview":
             return
 
@@ -729,18 +732,15 @@ class Daemon(object):
 
         print(f"upgrading {self.display(obj)}")
 
-        if obj["status"] in ["Installing", "Installed"]:
-            self.destroy(obj)
-
-        if "version" in obj["upgrade"]:
-            obj["source"]["version"] = obj["upgrade"]["version"]
+        if "upgrade" in obj:
+            obj["source"]["version"] = obj["upgrade"]
+            del obj["upgrade"]
         elif "version" in obj["source"]:
             del obj["source"]["version"]
 
-        obj["action"] = obj["upgrade"]["action"]
+        obj["action"] = "Preview"
         obj["status"] = "Upgrading"
 
-        del obj["upgrade"]
         del obj["resources"]
         del obj["spec"]
 

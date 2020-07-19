@@ -422,14 +422,14 @@ DRApp.controller("Base",null,{
         this.it.errors = upgrade.errors;
         this.application.render(this.it);
     },
-    upgrade_save: function(action) {
+    upgrade_save: function() {
         var values = this.upgrade_input();
         var upgrade = this.rest("OPTIONS","/api/app/"+ DRApp.current.path.app_name + '/upgrade', {values: values, validate: true});
         this.it.fields = upgrade.fields;
         this.it.ready = upgrade.ready;
         this.it.errors = upgrade.errors;
         if (!this.it.errors) {
-            this.rest("PUT","/api/app/"+ DRApp.current.path.app_name + '/upgrade', {values: values, action: action});
+            this.rest("PUT","/api/app/"+ DRApp.current.path.app_name + '/upgrade', {values: values});
             this.application.go("apps");
         } else {
             this.application.render(this.it);

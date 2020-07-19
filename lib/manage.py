@@ -659,7 +659,37 @@ class App(flask_restful.Resource):
     plural = "apps"
 
     @staticmethod
-    def to_dict(obj, short=False):
+    def actions(obj):
+
+        action = obj.get("action","Preview")
+        status = obj.get("status","Discovered")
+
+        actions = []
+
+        if (
+            "settings" in obj.get("spec", {}) and
+            status in ["NeedSettings", "Installed"] and
+            action not in ["Upgrade", "Uninstall"]
+        ):
+            actions.append("Settings")
+
+        if status == "Retry" and "resources" not in obj:
+            actions.append("Preview")
+
+        if "created" not in obj:
+            allow = ["Delete", "Install", "Upgrade"]
+        elif action != "Uninstall":
+            allow = ["Uninstall"]
+        else:
+            allow = []
+
+        if action not in allow:
+            actions.extend(allow)
+
+        return actions
+
+    @classmethod
+    def to_dict(cls, obj, short=False):
 
         app = {
             "name": obj["metadata"]["name"],
@@ -668,7 +698,7 @@ class App(flask_restful.Resource):
             "description": obj.get("spec", {}).get("description", ''),
             "action": obj.get("action","Preview"),
             "status": obj.get("status","Discovered"),
-            "actions": []
+            "actions": cls.actions(obj)
         }
 
         if "url" in obj:
@@ -676,22 +706,6 @@ class App(flask_restful.Resource):
 
         if "settings" in obj:
             app["settings"] = obj["settings"]
-
-        if "settings" in obj.get("spec", {}) and app["status"] in ["NeedSettings", "Installed"] and app["action"] != "Uninstall":
-            app["actions"].append("Settings")
-
-        if app["action"] == "Retry" and "resources" not in obj:
-            app["actions"].append("Preview")
-
-        if "created" not in obj:
-            actions = ["Delete", "Install", "Upgrade"]
-        elif app["action"] != "Uninstall":
-            actions = ["Upgrade", "Uninstall"]
-        else:
-            actions = []
-
-        if app["action"] not in actions:
-            app["actions"].extend(actions)
 
         if not short:
 
@@ -921,10 +935,16 @@ class AppRIU(App):
 
         obj = pykube.KlotIOApp.objects(kube()).filter().get(name=name).obj
 
-        obj["action"] = flask.request.json["action"]
+        action = flask.request.json["action"]
+
+        if action not in self.actions(obj):
+            return {"error": "invalid action"}, 400
+
+        obj["action"] = action
 
         if "error" in obj:
             del obj["error"]
+            obj["status"] = "Retry"
 
         pykube.KlotIOApp(kube(), obj).replace()
 
@@ -1136,12 +1156,8 @@ class AppV(App):
         if not fields.validate():
             return {"fields": fields.to_list(), "errors": fields.errors}, 400
 
-        obj["upgrade"] = {
-            "action": flask.request.json["action"]
-        }
-
         if fields["release"].value != "current":
-            obj["upgrade"]["version"] = fields["version"].value
+            obj["upgrade"] = fields["version"].value
 
         obj["action"] = "Upgrade"
 
