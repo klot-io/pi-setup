@@ -32,11 +32,8 @@
         <div class="uk-form-row">
             <hr/>
 {{?it.ready}}
-            <button type="button" onClick="DRApp.current.controller.upgrade_save('Preview');" class="uk-button uk-button-primary">
-                Preview
-            </button>
-            <button type="button" onClick="DRApp.current.controller.upgrade_save('Install');" class="uk-button uk-button-primary">
-                Install
+            <button type="button" onClick="DRApp.current.controller.upgrade_save();" class="uk-button uk-button-primary">
+                Upgrade
             </button>
 {{?}}
             <button type="button" onClick="DRApp.current.controller.upgrade_cancel();" class="uk-button uk-button-primary">
