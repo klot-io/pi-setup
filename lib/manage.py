@@ -36,7 +36,7 @@ def app():
     api.add_resource(PodRD, '/pod/<string:pod>')
     api.add_resource(AppLP, '/app')
     api.add_resource(AppRIU, '/app/<string:name>')
-    api.add_resource(AppV, '/app/<string:name>/upgrade')
+    api.add_resource(AppVM, '/app/<string:name>/upgrade', '/app/<string:name>/member')
 
     return app
 
@@ -1036,7 +1036,7 @@ class AppRIU(App):
 
         return {"message": f"{name} deleted"}, 201
 
-class AppV(App):
+class AppVM(App):
 
     @staticmethod
     def tags(source, stable=True):
@@ -1164,3 +1164,35 @@ class AppV(App):
         pykube.KlotIOApp(kube(), obj).replace()
 
         return {self.singular: self.to_dict(obj)}
+
+    @require_kube
+    def get(self, name):
+
+        group = pykube.KlotIOApp.objects(kube()).filter().get(name=name).obj.get("spec", {}).get("group")
+
+        members = []
+
+        for obj in [app.obj for app in pykube.KlotIOApp.objects(kube()).filter()]:
+
+            spec = obj.get("spec", {})
+
+            if (
+                spec.get("group") and spec.get("member") and "url" in obj and
+                spec["group"] == group and obj["metadata"]["name"] != name
+            ):
+                members.append({
+                    "name": spec["member"],
+                    "url": obj["url"]
+                })
+
+        members.sort(key=lambda member: member["name"])
+
+        with open("/opt/klot-io/config/kubernetes.yaml", "r") as cluster_file:
+            cluster = yaml.safe_load(cluster_file)["cluster"]
+
+        members.append({
+            "name": "Klot I/O",
+            "url": f"http://{cluster}-klot-io.local"
+        })
+
+        return {"members": members}

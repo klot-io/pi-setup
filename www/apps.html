@@ -56,7 +56,7 @@
                 <td>{{=app.status}}</td>
                 <td>
                     {{?app.url}}
-                        <a class="uk-button uk-button-primary" href="{{!app.url}}" target="{{!app.name}}">Open</a>
+                        <a class="uk-button uk-button-primary" href="{{!app.url}}">Open</a>
                     {{?}}
                     {{~app.actions :action}}
                         <button type="button" onClick="DRApp.current.controller.app_action('{{!app.name}}', '{{!action}}');" class="uk-button uk-button-primary">
