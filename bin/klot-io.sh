@@ -33,6 +33,9 @@ echo "install kubernetes files"
 sudo mkdir -p /opt/klot-io/kubernetes/
 sudo cp /boot/klot-io/kubernetes/klot-io-app-crd.yaml /opt/klot-io/kubernetes/
 sudo cp /boot/klot-io/kubernetes/klot-io-apps.yaml /opt/klot-io/kubernetes/
+sudo cp /boot/klot-io/kubernetes/klot-io-namespace.yaml /opt/klot-io/kubernetes/
+sudo cp /boot/klot-io/kubernetes/klot-io-account.yaml /opt/klot-io/kubernetes/
+sudo cp /boot/klot-io/kubernetes/klot-io-api.yaml /opt/klot-io/kubernetes/
 
 echo "installing klot-io dns"
 sudo cp /boot/klot-io/lib/name.py /opt/klot-io/lib/

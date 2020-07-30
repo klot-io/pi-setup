@@ -36,7 +36,7 @@ def app():
     api.add_resource(PodRD, '/pod/<string:pod>')
     api.add_resource(AppLP, '/app')
     api.add_resource(AppRIU, '/app/<string:name>')
-    api.add_resource(AppVM, '/app/<string:name>/upgrade', '/app/<string:name>/member')
+    api.add_resource(AppUpgrade, '/app/<string:name>/upgrade')
 
     return app
 
@@ -365,34 +365,6 @@ class Node(flask_restful.Resource):
     @staticmethod
     def uninitialized():
         return os.path.exists("/opt/klot-io/config/uninitialized")
-
-    def options(self):
-
-        options = []
-        master = None
-        app = flask.request.args.get("app")
-        label = flask.request.args.get("label")
-        value = flask.request.args.get("value")
-        workers = []
-
-        if kube():
-
-            for obj in [node.obj for node in pykube.Node.objects(kube()).filter()]:
-
-                if app and label and value and obj["metadata"].get("labels", {}).get(f"{app}/{label}") != value:
-                    continue
-
-                if obj["metadata"]["name"] == platform.node():
-                    master = obj["metadata"]["name"]
-                else:
-                    workers.append(obj["metadata"]["name"])
-
-            if master is not None:
-                options.append(master)
-
-        options.extend(sorted(workers))
-
-        return {"options": options}
 
     @require_auth
     def get(self):
@@ -1036,7 +1008,7 @@ class AppRIU(App):
 
         return {"message": f"{name} deleted"}, 201
 
-class AppVM(App):
+class AppUpgrade(App):
 
     @staticmethod
     def tags(source, stable=True):
@@ -1164,35 +1136,3 @@ class AppVM(App):
         pykube.KlotIOApp(kube(), obj).replace()
 
         return {self.singular: self.to_dict(obj)}
-
-    @require_kube
-    def get(self, name):
-
-        group = pykube.KlotIOApp.objects(kube()).filter().get(name=name).obj.get("spec", {}).get("group")
-
-        members = []
-
-        for obj in [app.obj for app in pykube.KlotIOApp.objects(kube()).filter()]:
-
-            spec = obj.get("spec", {})
-
-            if (
-                spec.get("group") and spec.get("member") and "url" in obj and
-                spec["group"] == group and obj["metadata"]["name"] != name
-            ):
-                members.append({
-                    "name": spec["member"],
-                    "url": obj["url"]
-                })
-
-        members.sort(key=lambda member: member["name"])
-
-        with open("/opt/klot-io/config/kubernetes.yaml", "r") as cluster_file:
-            cluster = yaml.safe_load(cluster_file)["cluster"]
-
-        members.append({
-            "name": "Klot I/O",
-            "url": f"http://{cluster}-klot-io.local"
-        })
-
-        return {"members": members}

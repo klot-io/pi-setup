@@ -1,6 +1,14 @@
 apiVersion: klot.io/v1
 kind: KlotIOApp
 metadata:
+  name: people.nandy.io
+source:
+  site: github.com
+  repo: nandy-io/people
+---
+apiVersion: klot.io/v1
+kind: KlotIOApp
+metadata:
   name: speech.nandy.io
 source:
   site: github.com

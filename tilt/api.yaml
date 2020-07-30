@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: klot-io
+spec:
+  template:
+    spec:
+      volumes:
+      - name: api
+      containers:
+      - name: api
+        image: api-klot-io
+        imagePullPolicy: Never
+        command: ["python3", "-m", "ptvsd", "--host", "0.0.0.0", "--port", "5678", "/opt/service/bin/api.py"]
+        readinessProbe:
+          initialDelaySeconds: 20
+        livenessProbe:
+          initialDelaySeconds: 20
+        ports:
+        - name: debug
+          containerPort: 5678
+          protocol: TCP

@@ -1,0 +1,44 @@
+ACCOUNT=klotio
+IMAGE=api
+VERSION=0.1
+NAME=$(IMAGE)-$(ACCOUNT)
+VOLUMES=-v ${PWD}/lib/:/opt/service/lib/ \
+		-v ${PWD}/test/:/opt/service/test/ \
+		-v ${PWD}/bin/:/opt/service/bin/
+ENVIRONMENT=-e PYTHONDONTWRITEBYTECODE=1 \
+			-e PYTHONUNBUFFERED=1
+DEBUG_PORT=17552
+
+.PHONY: cross build shell debug test push install update remove reset
+
+cross:
+	docker run --rm --privileged multiarch/qemu-user-static:register --reset
+
+build:
+	docker build . -t $(ACCOUNT)/$(IMAGE):$(VERSION)
+
+shell:
+	-docker run -it --rm $(VOLUMES) $(ENVIRONMENT) $(ACCOUNT)/$(IMAGE):$(VERSION) sh
+
+debug:
+	docker run -it $(VOLUMES) $(ENVIRONMENT) -p 127.0.0.1:$(DEBUG_PORT):5678 $(ACCOUNT)/$(IMAGE):$(VERSION) sh -c "python -m ptvsd --host 0.0.0.0 --port 5678 --wait -m unittest discover -v test"
+
+test:
+	docker run -it $(VOLUMES) $(ENVIRONMENT) $(ACCOUNT)/$(IMAGE):$(VERSION) sh -c "coverage run -m unittest discover -v test && coverage report -m --include lib/*.py"
+
+push:
+	docker push $(ACCOUNT)/$(IMAGE):$(VERSION)
+
+install:
+	kubectl create -f kubernetes/account.yaml
+	kubectl create -f kubernetes/api.yaml
+
+update:
+	kubectl replace -f kubernetes/account.yaml
+	kubectl replace -f kubernetes/api.yaml
+
+remove:
+	-kubectl delete -f kubernetes/api.yaml
+	-kubectl delete -f kubernetes/account.yaml
+
+reset: remove install
