@@ -1,5 +1,3 @@
-local('kubectl apply -f kubernetes/namespace.yaml')
-
 docker_build('api-klot-io', './api')
 
 k8s_yaml(kustomize('.'))
