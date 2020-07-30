@@ -13,4 +13,4 @@ patchesJson6902:
     kind: Deployment
     namespace: klot-io
     name: api
-  path: tilt/cluster.yaml
+  path: tilt/volumes.yaml
