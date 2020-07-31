@@ -3,8 +3,8 @@ IMAGE=api
 VERSION=0.1
 NAME=$(IMAGE)-$(ACCOUNT)
 VOLUMES=-v ${PWD}/lib/:/opt/service/lib/ \
-		-v ${PWD}/test/:/opt/service/test/ \
-		-v ${PWD}/bin/:/opt/service/bin/
+		-v ${PWD}/bin/:/opt/service/bin/ \
+		-v ${PWD}/test/:/opt/service/test/
 ENVIRONMENT=-e PYTHONDONTWRITEBYTECODE=1 \
 			-e PYTHONUNBUFFERED=1
 DEBUG_PORT=17552
