@@ -414,6 +414,9 @@ class Daemon(object):
         if self.config["kubernetes"]["role"] == "master":
             self.execute("sudo -u pi -- kubectl apply -f /opt/klot-io/kubernetes/klot-io-app-crd.yaml")
             self.execute("sudo -u pi -- kubectl apply -f /opt/klot-io/kubernetes/klot-io-apps.yaml")
+            self.execute("sudo -u pi -- kubectl apply -f /opt/klot-io/kubernetes/klot-io-namespace.yaml")
+            self.execute("sudo -u pi -- kubectl apply -f /opt/klot-io/kubernetes/klot-io-account.yaml")
+            self.execute("sudo -u pi -- kubectl apply -f /opt/klot-io/kubernetes/klot-io-api.yaml")
 
     def content(self, source):
 

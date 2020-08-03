@@ -12,11 +12,10 @@ VOLUMES=-v ${PWD}/boot_requirements.txt:/opt/klot-io/requirements.txt \
         -v ${PWD}/images/:/opt/klot-io/images/ \
 		-v ${PWD}/secret/:/opt/klot-io/secret/ \
 		-v ${PWD}/clusters/:/opt/klot-io/clusters/
-PORT=8083
-KLOTIO_HOST?=klot-io.local
+TILT_PORT=27584
 
 
-.PHONY: cross build shell boot cluster update export shrink zip config clean kubectl tag untag
+.PHONY: cross build shell up down boot cluster update shutdown export shrink zip config clean kubectl tag untag
 
 cross:
 	docker run --rm --privileged multiarch/qemu-user-static:register --reset
@@ -27,6 +26,14 @@ build:
 shell:
 	docker run --privileged=true -it --network=host $(VARIABLES) $(VOLUMES) $(ACCOUNT)/$(IMAGE)-setup:$(VERSION) sh
 
+up:
+	kubectx docker-desktop
+	tilt --port $(TILT_PORT) up
+
+down:
+	kubectx docker-desktop
+	tilt down
+
 boot:
 	docker run --privileged=true -it --rm -v /Volumes/boot/:/opt/klot-io/boot/ $(VOLUMES) $(ACCOUNT)/$(IMAGE)-setup:$(VERSION) sh -c "bin/boot.py $(VERSION)"
 
@@ -35,6 +42,9 @@ cluster:
 
 update:
 	docker run -it --network=host $(VARIABLES) $(VOLUMES) $(ACCOUNT)/$(IMAGE)-setup:$(VERSION) sh -c "bin/update.py"
+
+shutdown:
+	docker run -it --network=host $(VARIABLES) $(VOLUMES) $(ACCOUNT)/$(IMAGE)-setup:$(VERSION) sh -c "bin/shutdown.py"
 
 export:
 	bin/export.sh $(VERSION)
@@ -57,7 +67,7 @@ clean:
 
 kubectl:
 ifeq (,$(wildcard /usr/local/bin/kubectl))
-	curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.10.2/bin/darwin/amd64/kubectl
+	curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.16.6/bin/darwin/amd64/kubectl
 	chmod +x ./kubectl
 	sudo mv ./kubectl /usr/local/bin/kubectl
 endif

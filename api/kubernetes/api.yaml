@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: klot-io
+  labels:
+    app: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      serviceAccountName: api
+      containers:
+      - name: api
+        image: docker.io/klotio/api:0.1
+        imagePullPolicy: Always
+        env:
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        ports:
+        - containerPort: 80
+        readinessProbe:
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          httpGet:
+            path: /health
+            port: 80
+        livenessProbe:
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          httpGet:
+            path: /health
+            port: 80
+        volumeMounts:
+        - name: config
+          mountPath: /opt/klot-io/config
+      volumes:
+      - name: config
+        hostPath:
+          path: /opt/klot-io/config
+          type: Directory
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: api
+  namespace: klot-io
+spec:
+  selector:
+    app: api
+  type: LoadBalancer
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 80

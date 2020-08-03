@@ -16,10 +16,13 @@ local.copy("config/account.yaml")
 local.copy("config/network.yaml")
 
 local.directory("kubernetes")
-local.copy("kubernetes/klot-io-app-crd.yaml")
-local.copy("kubernetes/klot-io-apps.yaml")
+local.copy("kubernetes/crd.yaml", "kubernetes/klot-io-app-crd.yaml")
+local.copy("kubernetes/apps.yaml", "kubernetes/klot-io-apps.yaml")
+local.copy("kubernetes/namespace.yaml", "kubernetes/klot-io-namespace.yaml")
+local.copy("kubernetes/account.yaml", "kubernetes/klot-io-account.yaml")
+local.copy("kubernetes/api.yaml", "kubernetes/klot-io-api.yaml")
 
-local.copy("requirements.txt", "requirements.txt")
+local.copy("requirements.txt")
 
 local.directory("lib")
 local.copy("lib/manage.py")
