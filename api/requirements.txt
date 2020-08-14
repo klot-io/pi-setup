@@ -1,2 +1,1 @@
 git+https://github.com/klot-io/pykube.git@master#egg=pykube
-git+https://github.com/gaf3/opengui.git@v0.5#egg=opengui
