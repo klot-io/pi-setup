@@ -1,8 +1,4 @@
-FROM klotio/flask:0.1
-
-RUN mkdir -p /opt/service
-
-WORKDIR /opt/service
+FROM klotio/flask:0.2
 
 COPY requirements.txt .
 
@@ -18,7 +14,5 @@ RUN apk add --no-cache --virtual .pip-deps git && \
 
 COPY bin bin
 COPY lib lib
-
-ENV PYTHONPATH "/opt/service/lib:${PYTHONPATH}"
 
 CMD "/opt/service/bin/api.py"
