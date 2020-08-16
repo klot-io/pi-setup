@@ -7,6 +7,8 @@ import flask_restful
 import pykube
 import pykube.exceptions
 
+import klotio
+
 def app():
 
     app = flask.Flask("klot-io-api")
@@ -18,6 +20,10 @@ def app():
     api.add_resource(Health, '/health')
     api.add_resource(Node, '/node')
     api.add_resource(Member, '/app/<string:name>/member')
+
+    app.logger = klotio.logger(app.name)
+
+    app.logger.debug("init")
 
     return app
 

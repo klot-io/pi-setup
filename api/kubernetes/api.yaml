@@ -23,6 +23,8 @@ spec:
         env:
         - name: PYTHONUNBUFFERED
           value: "1"
+        - name: LOG_LEVEL
+          value: WARNING
         ports:
         - containerPort: 80
         readinessProbe:
