@@ -11,6 +11,9 @@ spec:
         image: api-klot-io
         imagePullPolicy: Never
         command: ["python3", "-m", "ptvsd", "--host", "0.0.0.0", "--port", "5678", "/opt/service/bin/api.py"]
+        env:
+        - name: LOG_LEVEL
+          value: WARNING
         readinessProbe:
           initialDelaySeconds: 20
         livenessProbe:

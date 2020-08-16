@@ -14,5 +14,3 @@ RUN apk add --no-cache --virtual .pip-deps git && \
 
 COPY bin bin
 COPY lib lib
-
-CMD "/opt/service/bin/api.py"

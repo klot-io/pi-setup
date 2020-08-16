@@ -1,5 +1,6 @@
 import unittest
 import unittest.mock
+import klotio_unittest
 
 import os
 import yaml
@@ -8,12 +9,13 @@ import pykube.exceptions
 import service
 
 
-class TestService(unittest.TestCase):
+class TestService(klotio_unittest.TestCase):
 
     maxDiff = None
 
     @unittest.mock.patch("pykube.HTTPClient", unittest.mock.MagicMock)
     @unittest.mock.patch("pykube.KubeConfig.from_service_account", unittest.mock.MagicMock)
+    @unittest.mock.patch("klotio.logger", klotio_unittest.MockLogger)
     def setUp(self):
 
         self.app = service.app()
@@ -21,6 +23,7 @@ class TestService(unittest.TestCase):
 
     @unittest.mock.patch("pykube.HTTPClient")
     @unittest.mock.patch("pykube.KubeConfig.from_service_account")
+    @unittest.mock.patch("klotio.logger", klotio_unittest.MockLogger)
     def test_app(self, mock_account, mock_client):
 
         mock_account.return_value = "service"
@@ -30,6 +33,10 @@ class TestService(unittest.TestCase):
 
         self.assertEqual(app.kube, "borg")
         mock_client.assert_called_once_with("service")
+
+        self.assertEqual(app.logger.name, "klot-io-api")
+
+        self.assertLogged(app.logger, "debug", "init")
 
     def test_health(self):
 
