@@ -5,11 +5,12 @@ DEBUG_PORT=17552
 TTY=$(shell if tty -s; then echo "-it"; fi)
 VOLUMES=-v ${PWD}/lib/:/opt/service/lib/ \
 		-v ${PWD}/bin/:/opt/service/bin/ \
-		-v ${PWD}/test/:/opt/service/test/
+		-v ${PWD}/test/:/opt/service/test/ \
+		-v ${PWD}/.pylintrc:/opt/service/.pylintrc
 ENVIRONMENT=-e PYTHONDONTWRITEBYTECODE=1 \
 			-e PYTHONUNBUFFERED=1
 
-.PHONY: cross build shell debug test push install update remove reset
+.PHONY: cross build shell debug test lint push install update remove reset
 
 cross:
 	docker run --rm --privileged multiarch/qemu-user-static:register --reset
@@ -25,6 +26,9 @@ debug:
 
 test:
 	docker run $(TTY) $(VOLUMES) $(ENVIRONMENT) $(ACCOUNT)/$(IMAGE):$(VERSION) sh -c "coverage run -m unittest discover -v test && coverage report -m --include lib/*.py"
+
+lint:
+	docker run $(TTY) $(VOLUMES) $(ENVIRONMENT) $(ACCOUNT)/$(IMAGE):$(VERSION) sh -c "pylint --rcfile=.pylintrc lib/"
 
 push:
 	docker push $(ACCOUNT)/$(IMAGE):$(VERSION)

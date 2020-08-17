@@ -18,7 +18,7 @@ class TestService(klotio_unittest.TestCase):
     @unittest.mock.patch("klotio.logger", klotio_unittest.MockLogger)
     def setUp(self):
 
-        self.app = service.app()
+        self.app = service.build()
         self.api = self.app.test_client()
 
     @unittest.mock.patch("pykube.HTTPClient")
@@ -29,7 +29,7 @@ class TestService(klotio_unittest.TestCase):
         mock_account.return_value = "service"
         mock_client.return_value = "borg"
 
-        app = service.app()
+        app = service.build()
 
         self.assertEqual(app.kube, "borg")
         mock_client.assert_called_once_with("service")

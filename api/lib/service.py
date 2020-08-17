@@ -1,3 +1,9 @@
+"""
+Module for the Klot I/O API
+"""
+
+# pylint: disable=no-self-use
+
 import os
 import yaml
 
@@ -8,8 +14,12 @@ import pykube
 import pykube.exceptions
 
 import klotio
+import klotio_flask_restful
 
-def app():
+def build():
+    """
+    Builds the Flask App
+    """
 
     app = flask.Flask("klot-io-api")
 
@@ -17,7 +27,7 @@ def app():
 
     api = flask_restful.Api(app)
 
-    api.add_resource(Health, '/health')
+    api.add_resource(klotio_flask_restful.Health, '/health')
     api.add_resource(Node, '/node')
     api.add_resource(Member, '/app/<string:name>/member')
 
@@ -28,14 +38,15 @@ def app():
     return app
 
 
-class Health(flask_restful.Resource):
-    def get(self):
-        return {"message": "OK"}
-
-
 class Node(flask_restful.Resource):
+    """
+    Handles Noddoe queries
+    """
 
     def options(self):
+        """
+        OPTIONS endpoint, get nodes tagged for an App
+        """
 
         options = []
         master = None
@@ -63,8 +74,14 @@ class Node(flask_restful.Resource):
 
 
 class Member(flask_restful.Resource):
+    """"
+    Gets members for a group
+    """
 
     def get(self, name):
+        """
+        GET endpoints, get other members of a group
+        """
 
         try:
 

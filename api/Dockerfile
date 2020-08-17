@@ -1,4 +1,4 @@
-FROM klotio/flask:0.2
+FROM klotio/flask:0.3
 
 COPY requirements.txt .
 
