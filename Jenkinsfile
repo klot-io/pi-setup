@@ -2,21 +2,28 @@ pipeline {
     agent any
 
     stages {
-        stage('Build api') {
+        stage('build api') {
             steps {
                 dir('api') {
                     sh 'make build'
                 }
             }
         }
-        stage('Test api') {
+        stage('test api') {
             steps {
                 dir('api') {
                     sh 'make test'
                 }
             }
         }
-        stage('Push api') {
+        stage('lint api') {
+            steps {
+                dir('api') {
+                    sh 'make lint'
+                }
+            }
+        }
+        stage('push api') {
             when {
                 branch 'master'
             }
