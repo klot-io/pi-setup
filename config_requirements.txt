@@ -1,4 +1,4 @@
-PyYAML==5.1
+PyYAML==5.4
 cryptography==2.4.2
 paramiko==2.4.2
 flask==1.0.2

@@ -1,4 +1,4 @@
-PyYAML==5.1
+PyYAML==5.4
 git+https://github.com/systemd/python-systemd.git@v234#egg=systemd
 netifaces==0.10.8
 flask==1.0.2
